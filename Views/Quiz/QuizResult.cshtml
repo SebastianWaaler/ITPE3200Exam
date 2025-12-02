@@ -12,3 +12,15 @@
 
 @* Link to return to the quizzes list *@
 <a href="/Quiz">Back to Quizzes</a>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+
+     <script>
+        // Simple client-side error handler for this page
+        window.addEventListener("error", function (event) {
+            console.error("Client error on Quiz Result page:", event.error || event.message);
+            alert("Something went wrong on this page. Please try again.");
+        });
+    </script>
+}

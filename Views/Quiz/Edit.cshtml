@@ -38,4 +38,14 @@
 
 @section Scripts {
     @await Html.PartialAsync("_ValidationScriptsPartial")   @* Enables client-side validation *@
+    <partial name="_ValidationScriptsPartial" />
+
+     <script>
+        // Simple client-side error handler for this page
+        window.addEventListener("error", function (event) {
+            console.error("Client error on Edit Quiz page:", event.error || event.message);
+            alert("Something went wrong on this page. Please try again.");
+        });
+    </script>
 }
+

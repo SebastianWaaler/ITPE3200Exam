@@ -69,52 +69,83 @@
 </form>
 
 @section Scripts {
-    @await Html.PartialAsync("_ValidationScriptsPartial")   @* Client-side validation *@
+    @await Html.PartialAsync("_ValidationScriptsPartial")
+    <partial name="_ValidationScriptsPartial" />
 
     <script>
+
+    // GLOBAL error handler for this page
+    window.addEventListener("error", function (event) {
+        console.error("Client error on Edit Question page:", event.error || event.message);
+        alert("Something went wrong on this page. Please try again.");
+    });
+
+    try {
+
         // Renumbers option indexes so the model binder can correctly bind the list
         function renumberOptions() {
-            const rows = document.querySelectorAll("#options .option-row");
+            try {
+                const rows = document.querySelectorAll("#options .option-row");
 
-            rows.forEach((row, i) => {
-                const text = row.querySelector('input.form-control');
-                const radio = row.querySelector('input[type="radio"]');
+                rows.forEach((row, i) => {
+                    const text = row.querySelector('input.form-control');
+                    const radio = row.querySelector('input[type="radio"]');
 
-                // Update input names to follow Options[index].Property format
-                text.name = `Options[${i}].Text`;
-                radio.name = "CorrectIndex";
-                radio.value = i;
-            });
+                    // Update input names to follow Options[index].Property format
+                    text.name = `Options[${i}].Text`;
+                    radio.name = "CorrectIndex";
+                    radio.value = i;
+                });
+
+            } catch (err) {
+                console.error("Error in renumberOptions:", err);
+                alert("Unable to update option numbering.");
+            }
         }
 
         // Add a new blank option row when clicking "Add Option"
         document.getElementById("addOption").onclick = function () {
-            const container = document.getElementById("options");
+            try {
+                const container = document.getElementById("options");
 
-            const row = document.createElement("div");
-            row.classList.add("d-flex", "align-items-center", "mb-2", "option-row");
+                const row = document.createElement("div");
+                row.classList.add("d-flex", "align-items-center", "mb-2", "option-row");
 
-            // New row HTML structure
-            row.innerHTML = `
-                <input class="form-control me-2" placeholder="Option text" />
-                <input type="radio" name="CorrectIndex" />
-                <button type="button" class="btn btn-danger btn-sm ms-2 removeOption">X</button>
-            `;
+                row.innerHTML = `
+                    <input class="form-control me-2" placeholder="Option text" />
+                    <input type="radio" name="CorrectIndex" />
+                    <button type="button" class="btn btn-danger btn-sm ms-2 removeOption">X</button>
+                `;
 
-            container.appendChild(row);
-            renumberOptions();   // Ensure correct indexing
+                container.appendChild(row);
+                renumberOptions();
+
+            } catch (err) {
+                console.error("Error adding new option:", err);
+                alert("Could not add a new answer option.");
+            }
         };
 
         // Remove an option row when clicking its "X" button
         document.addEventListener("click", function (e) {
-            if (e.target.classList.contains("removeOption")) {
-                
-                // Remove the whole option row div
-                e.target.closest(".option-row").remove();
+            try {
+                if (e.target.classList.contains("removeOption")) {
+                    // Remove the entire option row
+                    e.target.closest(".option-row").remove();
 
-                // Re-index remaining options
-                renumberOptions();
+                    // Re-index remaining options
+                    renumberOptions();
+                }
+            } catch (err) {
+                console.error("Error removing option row:", err);
+                alert("Could not remove this answer option.");
             }
         });
+
+    } catch (err) {
+        console.error("Fatal client error in Edit Question script:", err);
+        alert("An unexpected error occurred.");
+    }
+
     </script>
 }

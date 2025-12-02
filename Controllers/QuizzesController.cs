@@ -1,46 +1,64 @@
 using Microsoft.AspNetCore.Mvc;                               // Brings in MVC attributes and base classes like Controller
-using Microsoft.EntityFrameworkCore;                          // Brings in EF Core extension methods like Include(), ToListAsync(), etc.
-using QuizApp.Data;                                           // Gives access to QuizContext (your DbContext)
+using Microsoft.EntityFrameworkCore;                          // For DbUpdateConcurrencyException
 using QuizApp.Models;                                         // Gives access to your Quiz, Question, Option models
 using System.Threading.Tasks;                                 // For Task / async support
 using System.Linq;
+using Microsoft.Extensions.Logging;                           // For ILogger<T>
+using QuizApp.Data.Repositories.Interfaces;                        // For IQuizRepository
 
 namespace QuizApp.Controllers
 {
     public class QuizController : Controller
     {
-        private readonly QuizContext _context;
+        private readonly IQuizRepository _quizzes;            // Repository instead of DbContext
+        private readonly ILogger<QuizController> _logger;      // Logger for this controller
 
-        public QuizController(QuizContext context)              // Constructor where the framework injects the QuizContext
+        public QuizController(IQuizRepository quizzes, ILogger<QuizController> logger)
         {
-            _context = context;                                 // Save the injected context so we can query/update the DB in actions
+            _quizzes = quizzes;
+            _logger = logger;
         }
 
         // GET Quizzes
         public async Task<IActionResult> Index()                // Action method that returns a view listing all quizzes
         {
-            var quizzes = await _context.Quizzes                // Start a query against the Quizzes DbSet
-            .AsNoTracking().                                    // Faster read-only query (EF won’t track returned entities)
-            ToListAsync();                                      // Execute SQL and return results as a list (async)
-
-            return View(quizzes);                               // Pass the list to the Index.cshtml view
+            try
+            {
+                var quizzes = await _quizzes.GetAllAsync();    // via repository
+                return View(quizzes);                          // Pass the list to the Index.cshtml view
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading quiz list in Index.");
+                return RedirectToAction("Error", "Home");
+            }
         }
 
         public async Task<IActionResult> Details(int? id)
         {
             if (id == null!)
+            {
+                _logger.LogWarning("Details called with null id.");
                 return NotFound();
+            }
 
-            var quiz = await _context.Quizzes
-            .Include(q => q.Questions)
-                .ThenInclude(q => q.Options)
-                .AsNoTracking()
-                .FirstOrDefaultAsync(q => q.QuizId == id);
+            try
+            {
+                var quiz = await _quizzes.GetByIdAsync(id.Value); // repository returns quiz with questions + options
 
-            if (quiz == null)
-                return NotFound();
+                if (quiz == null)
+                {
+                    _logger.LogWarning("Quiz {QuizId} not found in Details.", id);
+                    return NotFound();
+                }
 
-            return View(quiz);                                  // Render Details.cshtml with the quiz model
+                return View(quiz);                             // Render Details.cshtml with the quiz model
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading Details for Quiz {QuizId}.", id);
+                return RedirectToAction("Error", "Home");
+            }
         }
 
         // GET: /Quizzes/Create
@@ -54,27 +72,51 @@ namespace QuizApp.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create([Bind("Title, Description")] Quiz quiz) // The [Bind] limits which properties are bound from the form
         {
-            if (ModelState.IsValid)
+            try
             {
-                _context.Add(quiz);
-                await _context.SaveChangesAsync();
-                return RedirectToAction(nameof(Index));
-            }
+                if (ModelState.IsValid)
+                {
+                    await _quizzes.AddAsync(quiz);            // via repository
 
-            return View(quiz);
+                    _logger.LogInformation("Quiz {QuizId} created.", quiz.QuizId);
+
+                    return RedirectToAction(nameof(Index));
+                }
+
+                return View(quiz);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating quiz.");
+                return RedirectToAction("Error", "Home");
+            }
         }
 
         // GET: /Quizzes/Edit/
         public async Task<IActionResult> Edit(int? id)
         {
             if (id == null)
+            {
+                _logger.LogWarning("Edit (GET) called with null id.");
                 return NotFound();
+            }
 
-            var quiz = await _context.Quizzes.FindAsync(id);
-            if (quiz == null)
-                return NotFound();
+            try
+            {
+                var quiz = await _quizzes.GetByIdAsync(id.Value); // get via repository
+                if (quiz == null)
+                {
+                    _logger.LogWarning("Quiz {QuizId} not found in Edit (GET).", id);
+                    return NotFound();
+                }
 
-            return View("~/Views/Quiz/Edit.cshtml", quiz);
+                return View("~/Views/Quiz/Edit.cshtml", quiz);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading Edit form for Quiz {QuizId}.", id);
+                return RedirectToAction("Error", "Home");
+            }
         }
 
         // POST: /Quizzes/Edit/5
@@ -83,131 +125,175 @@ namespace QuizApp.Controllers
         public async Task<IActionResult> Edit(int id, [Bind("QuizId,Title,Description")] Quiz quiz) // We bind key + editable fields (not Questions list)
         {
             if (id != quiz.QuizId)                            // Route id must match form’s key value
+            {
+                _logger.LogWarning("Edit (POST) called with mismatched id. Route id: {RouteId}, Model id: {ModelId}", id, quiz.QuizId);
                 return NotFound();
+            }
 
             if (!ModelState.IsValid)                          // If validation failed, redisplay form
                 return View(quiz);
 
             try
             {
-                _context.Update(quiz);
-                await _context.SaveChangesAsync();
-            }
+                await _quizzes.UpdateAsync(quiz);             // via repository
 
-            catch (DbUpdateConcurrencyException)
+                _logger.LogInformation("Quiz {QuizId} updated.", quiz.QuizId);
+            }
+            catch (DbUpdateConcurrencyException ex)
             {
-                if (!QuizExists(quiz.QuizId))
+                if (!await _quizzes.ExistsAsync(quiz.QuizId))
+                {
+                    _logger.LogWarning(ex, "Concurrency error: Quiz {QuizId} no longer exists.", quiz.QuizId);
                     return NotFound();
+                }
                 else
+                {
+                    _logger.LogError(ex, "Concurrency error updating Quiz {QuizId}.", quiz.QuizId);
                     throw;
-
+                }
             }
-            return RedirectToAction(nameof(Index));
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error editing Quiz {QuizId}.", quiz.QuizId);
+                return RedirectToAction("Error", "Home");
+            }
 
+            return RedirectToAction(nameof(Index));
         }
 
         // GET: /Quiz/Delete/5
         public async Task<IActionResult> Delete(int? id)
         {
-            if (id == null) return NotFound();
-
-            var quiz = await _context.Quizzes
-                .AsNoTracking()
-                .FirstOrDefaultAsync(q => q.QuizId == id);
-
-            if (quiz == null) 
+            if (id == null)
+            {
+                _logger.LogWarning("Delete (GET) called with null id.");
                 return NotFound();
+            }
 
-            return View(quiz);  // Views/Quiz/Delete.cshtml
+            try
+            {
+                var quiz = await _quizzes.GetByIdAsync(id.Value); // via repository
+
+                if (quiz == null)
+                {
+                    _logger.LogWarning("Quiz {QuizId} not found in Delete (GET).", id);
+                    return NotFound();
+                }
+
+                return View(quiz);  // Views/Quiz/Delete.cshtml
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error showing Delete confirmation for Quiz {QuizId}.", id);
+                return RedirectToAction("Error", "Home");
+            }
         }
-
-
 
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            var quiz = await _context.Quizzes
-                .Include(q => q.Questions)
-                    .ThenInclude(q => q.Options)
-                .FirstOrDefaultAsync(q => q.QuizId == id);
-
-            if (quiz == null)
-                return NotFound();
-
-            _context.Quizzes.Remove(quiz);
-            await _context.SaveChangesAsync();
-
-            return RedirectToAction(nameof(Index));
-        }
-
-        public IActionResult Take(int id)
-        {
-            var quiz = _context.Quizzes
-                .Include(q => q.Questions)
-                .ThenInclude(q => q.Options)
-                .FirstOrDefault(q => q.QuizId == id);
-
-            if (quiz == null)
-                return NotFound();
-
-            return View(quiz);
-        }
-        [HttpPost]
-        public IActionResult Submit(int QuizId)
-        {
-            // Load quiz including questions and options
-            var quiz = _context.Quizzes
-                .Include(q => q.Questions)
-                .ThenInclude(q => q.Options)
-                .FirstOrDefault(q => q.QuizId == QuizId);
-
-            if (quiz == null)
-                return NotFound();
-
-            int totalPoints = 0;
-            int earnedPoints = 0;
-
-            foreach (var question in quiz.Questions)
+            try
             {
-                totalPoints += question.Points;
+                var quiz = await _quizzes.GetByIdAsync(id);   // include children via repo
 
-                // Name of radio button group: question_QUESTIONID
-                string formKey = $"question_{question.Id}";
-
-                // Did the user answer this question?
-                if (!Request.Form.ContainsKey(formKey))
-                    continue;
-
-                int selectedOptionId = int.Parse(Request.Form[formKey]!);
-
-                var selectedOption =
-                    question.Options.First(o => o.Id == selectedOptionId);
-
-                if (selectedOption.IsCorrect)
+                if (quiz == null)
                 {
-                    earnedPoints += question.Points;
+                    _logger.LogWarning("Quiz {QuizId} not found in DeleteConfirmed.", id);
+                    return NotFound();
                 }
+
+                await _quizzes.DeleteAsync(id);               // via repository
+
+                _logger.LogInformation("Quiz {QuizId} deleted.", id);
+
+                return RedirectToAction(nameof(Index));
             }
-
-            // Pass results to the view
-            var result = new QuizResultViewModel
+            catch (Exception ex)
             {
-                QuizTitle = quiz.Title,
-                TotalPoints = totalPoints,
-                EarnedPoints = earnedPoints
-            };
-
-            return View("QuizResult", result);
+                _logger.LogError(ex, "Error deleting Quiz {QuizId}.", id);
+                return RedirectToAction("Error", "Home");
+            }
         }
 
+        public async Task<IActionResult> Take(int id)
+        {
+            try
+            {
+                var quiz = await _quizzes.GetByIdAsync(id);   // repo: includes questions + options
 
+                if (quiz == null)
+                {
+                    _logger.LogWarning("Quiz {QuizId} not found in Take.", id);
+                    return NotFound();
+                }
 
+                return View(quiz);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading Take view for Quiz {QuizId}.", id);
+                return RedirectToAction("Error", "Home");
+            }
+        }
 
+        [HttpPost]
+        public async Task<IActionResult> Submit(int QuizId)
+        {
+            try
+            {
+                // Load quiz including questions and options via repository
+                var quiz = await _quizzes.GetByIdAsync(QuizId);
 
+                if (quiz == null)
+                {
+                    _logger.LogWarning("Quiz {QuizId} not found in Submit.", QuizId);
+                    return NotFound();
+                }
 
-        private bool QuizExists(int id)                       // Helper used by Edit’s concurrency catch
-            => _context.Quizzes.Any(e => e.QuizId == id); 
+                int totalPoints = 0;
+                int earnedPoints = 0;
+
+                foreach (var question in quiz.Questions)
+                {
+                    totalPoints += question.Points;
+
+                    // Name of radio button group: question_QUESTIONID
+                    string formKey = $"question_{question.Id}";
+
+                    // Did the user answer this question?
+                    if (!Request.Form.ContainsKey(formKey))
+                        continue;
+
+                    int selectedOptionId = int.Parse(Request.Form[formKey]!);
+
+                    var selectedOption =
+                        question.Options.First(o => o.Id == selectedOptionId);
+
+                    if (selectedOption.IsCorrect)
+                    {
+                        earnedPoints += question.Points;
+                    }
+                }
+
+                // Pass results to the view
+                var result = new QuizResultViewModel
+                {
+                    QuizTitle = quiz.Title,
+                    TotalPoints = totalPoints,
+                    EarnedPoints = earnedPoints
+                };
+
+                _logger.LogInformation("Quiz {QuizId} submitted. Score: {Earned}/{Total}.",
+                    QuizId, earnedPoints, totalPoints);
+
+                return View("QuizResult", result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error submitting Quiz {QuizId}.", QuizId);
+                return RedirectToAction("Error", "Home");
+            }
+        }
     }
 }
-

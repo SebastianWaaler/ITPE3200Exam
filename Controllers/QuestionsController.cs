@@ -1,130 +1,184 @@
 using Microsoft.AspNetCore.Mvc;                                   // MVC base classes / attributes
-using Microsoft.EntityFrameworkCore;                              // EF Core APIs
-using QuizApp.Data;                                               // QuizContext
 using QuizApp.Models;                                             // Question, Quiz, Option
 using System.Threading.Tasks;                                     // Task/async
 using System.Linq;
 using System.IO.Compression;
-
+using Microsoft.Extensions.Logging;                               // ILogger
+using QuizApp.Data.Repositories.Interfaces;                            // IQuestionRepository, IQuizRepository
 
 namespace QuizApp.Controllers
 {
     public class QuestionsController : Controller
     {
-        private readonly QuizContext _context;
+        private readonly IQuestionRepository _questions;          // Repository for Question
+        private readonly IQuizRepository _quizzes;                // Repository for Quiz
+        private readonly ILogger<QuestionsController> _logger;    // Logger for this controller
 
-        public QuestionsController(QuizContext context)
+        public QuestionsController(
+            IQuestionRepository questions,
+            IQuizRepository quizzes,
+            ILogger<QuestionsController> logger)
         {
-            _context = context;
+            _questions = questions;
+            _quizzes = quizzes;
+            _logger = logger;
         }
 
         public async Task<IActionResult> Details(int? id)          // Show a single question (with options)
         {
             if (id == null)
+            {
+                _logger.LogWarning("Details called with null id.");
                 return NotFound();
+            }
 
-            var question = await _context.Questions
-                .Include(q => q.Quiz)                       
-                .Include(q => q.Options)                            // Include options to display
-                .AsNoTracking()
-                .FirstOrDefaultAsync(q => q.Id == id);
+            try
+            {
+                var question = await _questions.GetByIdAsync(id.Value);   // via repository (includes Quiz + Options)
 
-            if (question == null)
-                return NotFound();
+                if (question == null)
+                {
+                    _logger.LogWarning("Question {QuestionId} not found in Details.", id);
+                    return NotFound();
+                }
 
-            return View(question);                                  // Render Details.cshtml
+                return View(question);                              // Render Details.cshtml
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading Details for Question {QuestionId}.", id);
+                return RedirectToAction("Error", "Home");
+            }
         }
 
         [HttpGet]
         public async Task<IActionResult> Create(int quizId)
         {
-        var quiz = await _context.Quizzes.FindAsync(quizId);
-        if (quiz == null)
-            return NotFound();
-
-        // Prepare an empty Question for the form
-        ViewBag.Quiz = quiz;
-
-        return View(new Question
-        {
-            QuizId = quizId,
-            Points = 1    // default points
-        });
-    }
-
-
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Create(Question question, int? CorrectIndex)
-    {
-      
-    
-        var quiz = await _context.Quizzes.FindAsync(question.QuizId);
-        if (quiz == null) {
-            ModelState.AddModelError("", $"No quiz found with ID: {question.QuizId}");        
-        } else {
-            question.Quiz = quiz;
-        }
-
-        // Ensure Options list exists
-        question.Options ??= new List<Option>();
-
-        // Remove empty options, trim text
-        question.Options = question.Options
-            .Where(o => !string.IsNullOrWhiteSpace(o.Text))
-            .Select(o => new Option
+            try
             {
-                Text = o.Text.Trim(),
-                IsCorrect = false   // set later
-            })
-            .ToList();
+                var quiz = await _quizzes.GetByIdAsync(quizId);     // load quiz via repository
+                if (quiz == null)
+                {
+                    _logger.LogWarning("Quiz {QuizId} not found in Create (GET).", quizId);
+                    return NotFound();
+                }
 
-        // Must have at least 2 options
-        if (question.Options.Count < 2) {
-            ModelState.AddModelError("", "Please enter at least two answer options.");
+                // Prepare an empty Question for the form
+                ViewBag.Quiz = quiz;
+
+                return View(new Question
+                {
+                    QuizId = quizId,
+                    Points = 1    // default points
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error showing Create question form for Quiz {QuizId}.", quizId);
+                return RedirectToAction("Error", "Home");
+            }
         }
 
-        // A correct answer must be selected
-        if (CorrectIndex == null || CorrectIndex < 0 || CorrectIndex >= question.Options.Count) {
-            Console.WriteLine("Adding correct erro");
-            ModelState.AddModelError("", "Please select which answer is correct.");
-        }
-        else {
-            question.Options[(int)CorrectIndex].IsCorrect = true;
-        }
 
-
-        // Redisplay form if validation failed
-        if (!ModelState.IsValid)
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Create(Question question, int? CorrectIndex)
         {
-            ViewBag.Quiz = await _context.Quizzes.FindAsync(question.QuizId);
-            return View(question);
+            try
+            {
+                var quiz = await _quizzes.GetByIdAsync(question.QuizId);
+                if (quiz == null)
+                {
+                    _logger.LogWarning("Quiz {QuizId} not found in Create (POST).", question.QuizId);
+                    ModelState.AddModelError("", $"No quiz found with ID: {question.QuizId}");
+                }
+                else
+                {
+                    question.Quiz = quiz;
+                }
+
+                // Ensure Options list exists
+                question.Options ??= new List<Option>();
+
+                // Remove empty options, trim text
+                question.Options = question.Options
+                    .Where(o => !string.IsNullOrWhiteSpace(o.Text))
+                    .Select(o => new Option
+                    {
+                        Text = o.Text.Trim(),
+                        IsCorrect = false   // set later
+                    })
+                    .ToList();
+
+                // Must have at least 2 options
+                if (question.Options.Count < 2)
+                {
+                    _logger.LogWarning("Validation failed in Create: less than 2 options for Quiz {QuizId}.", question.QuizId);
+                    ModelState.AddModelError("", "Please enter at least two answer options.");
+                }
+
+                // A correct answer must be selected
+                if (CorrectIndex == null || CorrectIndex < 0 || CorrectIndex >= question.Options.Count)
+                {
+                    _logger.LogWarning("Validation failed in Create: no correct option selected for Quiz {QuizId}.", question.QuizId);
+                    ModelState.AddModelError("", "Please select which answer is correct.");
+                }
+                else
+                {
+                    question.Options[(int)CorrectIndex].IsCorrect = true;
+                }
+
+                // Redisplay form if validation failed
+                if (!ModelState.IsValid)
+                {
+                    ViewBag.Quiz = await _quizzes.GetByIdAsync(question.QuizId);
+                    return View(question);
+                }
+
+                // Link options to the question
+                foreach (var o in question.Options)
+                    o.Question = question;
+
+                // Save via repository
+                await _questions.AddAsync(question);
+
+                _logger.LogInformation("Question {QuestionId} created for Quiz {QuizId}.", question.Id, question.QuizId);
+
+                return RedirectToAction(nameof(QuizController.Details), "Quiz", new { id = question.QuizId });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating Question for Quiz {QuizId}.", question.QuizId);
+                return RedirectToAction("Error", "Home");
+            }
         }
-
-        // Link options to the question
-        foreach (var o in question.Options)
-            o.Question = question;
-
-        // Save
-        _context.Questions.Add(question);
-        await _context.SaveChangesAsync();
-
-        return RedirectToAction(nameof(QuizController.Details), "Quiz", new { id = question.QuizId });
-    }
 
 
         public async Task<IActionResult> Edit(int? id)
         {
-            if (id == null) return NotFound();
+            if (id == null)
+            {
+                _logger.LogWarning("Edit (GET) called with null id.");
+                return NotFound();
+            }
 
-            var question = await _context.Questions
-                .Include(q => q.Quiz)
-                .Include(q => q.Options)   
-                .FirstOrDefaultAsync(q => q.Id == id);
+            try
+            {
+                var question = await _questions.GetByIdAsync(id.Value);   // includes Quiz + Options
 
-            if (question == null) return NotFound();
+                if (question == null)
+                {
+                    _logger.LogWarning("Question {QuestionId} not found in Edit (GET).", id);
+                    return NotFound();
+                }
 
-            return View(question);
+                return View(question);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading Edit form for Question {QuestionId}.", id);
+                return RedirectToAction("Error", "Home");
+            }
         }
 
         [HttpPost]
@@ -132,44 +186,62 @@ namespace QuizApp.Controllers
         public async Task<IActionResult> Edit(int id, [Bind("Id,Text,Points,QuizId")] Question question)
         {                                                           // Bind key + editable fields
             if (id != question.Id)
+            {
+                _logger.LogWarning("Edit (POST) called with mismatched id. Route id: {RouteId}, Model id: {ModelId}", id, question.Id);
                 return NotFound();
-
-            // Validate parent still exists
-            if (!await _context.Quizzes.AnyAsync(q => q.QuizId == question.QuizId))
-                ModelState.AddModelError("", "Selected quiz does not exist.");
-
-            if (!ModelState.IsValid)
-                return View(question);
+            }
 
             try
             {
-                _context.Update(question);                          // Mark for UPDATE
-                await _context.SaveChangesAsync();                  // Execute UPDATE
-            }
-            catch (DbUpdateConcurrencyException)                    // Concurrency handling
-            {
-                if (!await _context.Questions.AnyAsync(e => e.Id == question.Id))
-                    return NotFound();                              // Deleted by someone else
-                else
-                    throw;
-            }
+                // Validate parent still exists
+                if (!await _quizzes.ExistsAsync(question.QuizId))
+                {
+                    _logger.LogWarning("Quiz {QuizId} not found in Edit (POST).", question.QuizId);
+                    ModelState.AddModelError("", "Selected quiz does not exist.");
+                }
 
-            return RedirectToAction(nameof(QuizController.Details), "Quiz", new { id = question.QuizId });
+                if (!ModelState.IsValid)
+                    return View(question);
+
+                await _questions.UpdateAsync(question);            // UPDATE via repository
+
+                _logger.LogInformation("Question {QuestionId} updated for Quiz {QuizId}.", question.Id, question.QuizId);
+
+                return RedirectToAction(nameof(QuizController.Details), "Quiz", new { id = question.QuizId });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error editing Question {QuestionId}.", question.Id);
+                return RedirectToAction("Error", "Home");
+            }
         }
 
         // GET: /Questions/Delete/
         public async Task<IActionResult> Delete(int? id)
         {
-            if (id == null) return NotFound();
+            if (id == null)
+            {
+                _logger.LogWarning("Delete (GET) called with null id.");
+                return NotFound();
+            }
 
-            var question = await _context.Questions
-                .Include(q => q.Quiz)        // for breadcrumb/title on the page
-                .AsNoTracking()
-                .FirstOrDefaultAsync(q => q.Id == id);
+            try
+            {
+                var question = await _questions.GetByIdAsync(id.Value);   // includes Quiz
 
-            if (question == null) return NotFound();
+                if (question == null)
+                {
+                    _logger.LogWarning("Question {QuestionId} not found in Delete (GET).", id);
+                    return NotFound();
+                }
 
-            return View(question);           // Views/Questions/Delete.cshtml
+                return View(question);           // Views/Questions/Delete.cshtml
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error showing Delete confirmation for Question {QuestionId}.", id);
+                return RedirectToAction("Error", "Home");
+            }
         }
 
         // POST: /Questions/Delete/
@@ -177,26 +249,30 @@ namespace QuizApp.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            // Load with children so we can handle FK behavior explicitly if needed
-            var question = await _context.Questions
-                .Include(q => q.Options)
-                .FirstOrDefaultAsync(q => q.Id == id);
+            try
+            {
+                var question = await _questions.GetByIdAsync(id);         // load with Options + Quiz
 
-            if (question == null) return NotFound();
+                if (question == null)
+                {
+                    _logger.LogWarning("Question {QuestionId} not found in DeleteConfirmed.", id);
+                    return NotFound();
+                }
 
-            var quizId = question.QuizId;
+                var quizId = question.QuizId;
 
-            _context.Questions.Remove(question);
-            await _context.SaveChangesAsync();
+                await _questions.DeleteAsync(id);                         // DELETE via repository
 
-            // Back to that quiz’s details
-         return RedirectToAction(nameof(QuizController.Details), "Quiz", new { id = quizId });
+                _logger.LogInformation("Question {QuestionId} deleted for Quiz {QuizId}.", id, quizId);
 
+                // Back to that quiz’s details
+                return RedirectToAction(nameof(QuizController.Details), "Quiz", new { id = quizId });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting Question {QuestionId}.", id);
+                return RedirectToAction("Error", "Home");
+            }
         }
-
-
-        
     }
-
-
 }

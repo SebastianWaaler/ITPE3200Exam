@@ -62,3 +62,14 @@
     }
     </tbody>
 </table>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+     <script>
+        // Simple client-side error handler for this page
+        window.addEventListener("error", function (event) {
+            console.error("Client error on Quiz page:", event.error || event.message);
+            alert("Something went wrong on this page. Please try again.");
+        });
+    </script>
+}

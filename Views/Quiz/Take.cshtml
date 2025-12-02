@@ -6,6 +6,13 @@
     <p class="text-muted">@Model.Description</p>      @* Display the quiz description *@
 </div>
 
+@* This area will be populated by the client-side API call (quizTake.js) *@
+<div id="quiz-api-info"
+     data-quiz-id="@Model.QuizId"
+     class="text-muted mb-3">
+    <!-- Loaded via API: quiz details will appear here -->
+</div>
+
 @* Form posts answers to the Submit action *@
 <form method="post" asp-action="Submit" class="card shadow-sm p-4">
 
@@ -45,3 +52,18 @@
     @* Submit answers *@
     <button type="submit" class="btn btn-primary mt-3">Submit Quiz</button>
 </form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+
+    <script>
+        // Simple client-side error handler for this page
+        window.addEventListener("error", function (event) {
+            console.error("Client error on Take Quiz page:", event.error || event.message);
+            alert("Something went wrong on this page. Please try again.");
+        });
+    </script>
+
+    @* Client-side API layer usage: quizTake.js imports getQuiz from api.js *@
+    <script type="module" src="~/js/quizTake.js"></script>
+}

@@ -9,3 +9,15 @@
     <input asp-for="IsCorrect" class="form-check-input" />
     <label asp-for="IsCorrect" class="form-check-label"></label>
 </div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+
+    <script>
+        // Client-side error handler for this page
+        window.addEventListener("error", function (event) {
+            console.error("Client error on Create Option page:", event.error || event.message);
+            alert("Something went wrong on this page. Please try again.");
+        });
+    </script>
+}

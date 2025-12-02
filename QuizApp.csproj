@@ -15,4 +15,9 @@
     </PackageReference>
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Remove="QuizApp.Tests\**\*.cs" />
+    <None   Remove="QuizApp.Tests\**\*" />
+  </ItemGroup>
+
 </Project>

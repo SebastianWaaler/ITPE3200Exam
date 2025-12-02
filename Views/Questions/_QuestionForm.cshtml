@@ -10,3 +10,15 @@
     <input asp-for="Points" class="form-control" type="number" />
     <span asp-validation-for="Points" class="text-danger"></span>
 </div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+
+    <script>
+        // Client-side error handler for this page
+        window.addEventListener("error", function (event) {
+            console.error("Client error on Create Question page:", event.error || event.message);
+            alert("Something went wrong on this page. Please try again.");
+        });
+    </script>
+}

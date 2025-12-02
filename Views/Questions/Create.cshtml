@@ -62,43 +62,52 @@
 </form>
 
 @section Scripts {
-<script>
 
-    // Add new answer option dynamically when the button is clicked
-    document.getElementById("addOption").onclick = function () {
+    <partial name="_ValidationScriptsPartial" />
 
-        const container = document.getElementById("options");
+    <script>
+        try {
+            // Add new answer option dynamically when the button is clicked
+            document.getElementById("addOption").onclick = function () {
+                try {
+                    const container = document.getElementById("options");
+                    const index = container.children.length;
 
-        // Determine the new index based on current number of option rows
-        const index = container.children.length;
+                    const row = document.createElement("div");
+                    row.classList.add("d-flex", "align-items-center", "mb-2", "option-row");
 
-        // Create a new row for an option
-        const row = document.createElement("div");
-        row.classList.add("d-flex", "align-items-center", "mb-2", "option-row");
+                    row.innerHTML = `
+                        <input name="Options[${index}].Text"
+                               class="form-control me-2"
+                               placeholder="Option text" />
 
-        // Insert HTML inputs for the new option
-        row.innerHTML = `
-            <input name="Options[${index}].Text"
-                   class="form-control me-2"
-                   placeholder="Option text" />
+                        <input type="radio" name="CorrectIndex" value="${index}" />
 
-            <input type="radio" name="CorrectIndex" value="${index}" />
+                        <button type="button" class="btn btn-danger btn-sm ms-2 removeOption">X</button>
+                    `;
 
-            <button type="button" class="btn btn-danger btn-sm ms-2 removeOption">X</button>
-        `;
+                    container.appendChild(row);
+                } catch (err) {
+                    console.error("Error adding option row:", err);
+                    alert("Something went wrong while adding an option. Please try again.");
+                }
+            };
 
-        // Add the row to the container
-        container.appendChild(row);
-    };
+            // Event delegation: Handles clicking the Remove button for any option
+            document.addEventListener("click", function (e) {
+                try {
+                    if (e.target.classList.contains("removeOption")) {
+                        e.target.parentElement.remove();
+                    }
+                } catch (err) {
+                    console.error("Error removing option row:", err);
+                    alert("Something went wrong while removing an option.");
+                }
+            });
 
-    // Event delegation: Handles clicking the Remove button for any option
-    document.addEventListener("click", function (e) {
-        if (e.target.classList.contains("removeOption")) {
-            
-            // Remove the entire option row
-            e.target.parentElement.remove();
+        } catch (err) {
+            console.error("Client error in Create Question script:", err);
+            alert("Something went wrong on this page. Please refresh and try again.");
         }
-    });
-
-</script>
+    </script>
 }

@@ -1,7 +1,14 @@
 using Microsoft.EntityFrameworkCore;
 using QuizApp.Data;
+using QuizApp.Data.Repositories.Interfaces;
+using QuizApp.Data.Repositories.Implementations;
+
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
+
 
 // Register DbContext with dependency injection
 builder.Services.AddDbContext<QuizContext>(options =>
@@ -9,6 +16,10 @@ builder.Services.AddDbContext<QuizContext>(options =>
 
 // Register MVC controllers + Razor views
 builder.Services.AddControllersWithViews();
+
+builder.Services.AddScoped<IQuizRepository, QuizRepository>();
+builder.Services.AddScoped<IQuestionRepository, QuestionRepository>();
+builder.Services.AddScoped<IOptionRepository, OptionRepository>();
 
 var app = builder.Build();
 
@@ -31,3 +42,4 @@ app.MapControllerRoute(
     pattern: "{controller=Quiz}/{action=Index}/{id?}");
 
 app.Run();
+
