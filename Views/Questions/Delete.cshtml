@@ -1,0 +1,68 @@
+@model QuizApp.Models.Question      
+@* The view receives a Question model instance *@
+
+@{
+    ViewData["Title"] = "Delete Question";   @* Sets the page title *@
+}
+
+<h2>Delete Question</h2>
+
+<p class="text-muted">
+    @* Informational message asking for confirmation *@
+    Are you sure you want to delete this question
+    from <strong>@Model.Quiz?.Title</strong>?
+</p>
+
+@* Card showing question details before deletion *@
+<div class="card mb-3">
+  <div class="card-body">
+    <dl class="row mb-0">
+      @* Display Question Text *@
+      <dt class="col-sm-3">Text</dt>
+      <dd class="col-sm-9">@Model.Text</dd>
+
+      @* Display point value *@
+      <dt class="col-sm-3">Points</dt>
+      <dd class="col-sm-9">@Model.Points</dd>
+
+      @* Display number of answer options *@
+      <dt class="col-sm-3">Options</dt>
+      <dd class="col-sm-9">@Model.Options?.Count</dd>
+    </dl>
+
+    @* Optional: Show each option text + highlight the correct one *@
+    @if (Model.Options != null && Model.Options.Any())
+    {
+        <ul class="mt-2">
+        @foreach (var opt in Model.Options)
+        {
+            <li style="@(opt.IsCorrect ? "font-weight:bold;color:green" : "")">
+                @opt.Text @(opt.IsCorrect ? "(correct)" : "")
+            </li>
+        }
+        </ul>
+    }
+  </div>
+</div>
+
+@* Form posts the delete request back to the Delete POST action *@
+<form asp-action="Delete" method="post">
+
+    @Html.AntiForgeryToken()  @* Security token to prevent CSRF attacks *@
+
+    @* Hidden fields keep the question ID and quiz ID so the controller
+       knows what to delete and where to redirect after deletion *@
+    <input type="hidden" asp-for="Id" />
+    <input type="hidden" asp-for="QuizId" />
+
+    @* Primary delete button *@
+    <button type="submit" class="btn btn-danger">Delete</button>
+
+    @* Cancel navigation redirects back to the Quiz details page *@
+    <a asp-controller="Quiz"
+       asp-action="Details"
+       asp-route-id="@Model.QuizId"
+       class="btn btn-outline-secondary">
+        Cancel
+    </a>
+</form>

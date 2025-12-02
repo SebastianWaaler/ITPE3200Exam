@@ -1,0 +1,120 @@
+@model QuizApp.Models.Question    
+@* The view receives a Question model to edit *@
+
+<h2>Edit Question — @(Model.Quiz?.Title ?? "Quiz")</h2> @* Show quiz title if available *@
+
+<form asp-action="Edit" method="post" novalidate>
+    @Html.AntiForgeryToken()      @* Security token to prevent CSRF attacks *@
+
+    @* Hidden fields required to track which question is being edited *@
+    <input asp-for="Id" type="hidden" />
+    <input asp-for="QuizId" type="hidden" />
+
+    @* Question text input *@
+    <div class="mb-3">
+        <label asp-for="Text" class="form-label"></label>
+        <input asp-for="Text" class="form-control" />
+        <span asp-validation-for="Text" class="text-danger"></span>
+    </div>
+
+    @* Points input *@
+    <div class="mb-3">
+        <label asp-for="Points" class="form-label"></label>
+        <input asp-for="Points" type="number" class="form-control" />
+        <span asp-validation-for="Points" class="text-danger"></span>
+    </div>
+
+    <hr />
+    <h4>Answer Options</h4>
+
+    @* Container for all answer option rows *@
+    <div id="options">
+        @for (int i = 0; i < Model.Options.Count; i++)
+        {
+            @* Each row displays one answer option *@
+            <div class="d-flex align-items-center mb-2 option-row">
+                
+                @* Text field for the option text (indexed for model binding) *@
+                <input name="Options[@i].Text"
+                       value="@Model.Options[i].Text"
+                       class="form-control me-2" />
+
+                @* Radio button to choose the correct option *@
+                <input type="radio"
+                       name="CorrectIndex"
+                       value="@i"
+                       @(Model.Options[i].IsCorrect ? "checked" : "") />
+
+                @* Remove option button *@
+                <button type="button" class="btn btn-danger btn-sm ms-2 removeOption">X</button>
+            </div>
+        }
+    </div>
+
+    @* Add a new answer option dynamically *@
+    <button type="button" id="addOption" class="btn btn-secondary mt-2">Add Option</button>
+
+    <br /><br />
+
+    @* Save changes *@
+    <button type="submit" class="btn btn-primary">Save</button>
+
+    @* Cancel and go back to Quiz details *@
+    <a asp-controller="Quiz"
+       asp-action="Details"
+       asp-route-id="@Model.QuizId"
+       class="btn btn-outline-secondary">
+        Cancel
+    </a>
+</form>
+
+@section Scripts {
+    @await Html.PartialAsync("_ValidationScriptsPartial")   @* Client-side validation *@
+
+    <script>
+        // Renumbers option indexes so the model binder can correctly bind the list
+        function renumberOptions() {
+            const rows = document.querySelectorAll("#options .option-row");
+
+            rows.forEach((row, i) => {
+                const text = row.querySelector('input.form-control');
+                const radio = row.querySelector('input[type="radio"]');
+
+                // Update input names to follow Options[index].Property format
+                text.name = `Options[${i}].Text`;
+                radio.name = "CorrectIndex";
+                radio.value = i;
+            });
+        }
+
+        // Add a new blank option row when clicking "Add Option"
+        document.getElementById("addOption").onclick = function () {
+            const container = document.getElementById("options");
+
+            const row = document.createElement("div");
+            row.classList.add("d-flex", "align-items-center", "mb-2", "option-row");
+
+            // New row HTML structure
+            row.innerHTML = `
+                <input class="form-control me-2" placeholder="Option text" />
+                <input type="radio" name="CorrectIndex" />
+                <button type="button" class="btn btn-danger btn-sm ms-2 removeOption">X</button>
+            `;
+
+            container.appendChild(row);
+            renumberOptions();   // Ensure correct indexing
+        };
+
+        // Remove an option row when clicking its "X" button
+        document.addEventListener("click", function (e) {
+            if (e.target.classList.contains("removeOption")) {
+                
+                // Remove the whole option row div
+                e.target.closest(".option-row").remove();
+
+                // Re-index remaining options
+                renumberOptions();
+            }
+        });
+    </script>
+}

@@ -1,0 +1,41 @@
+@{
+    ViewData["Title"] = "Edit (marker)";      @* Initial title (later overwritten) *@
+}
+
+@model QuizApp.Models.Quiz                   
+@* The view receives a Quiz model to edit *@
+
+@{
+    ViewData["Title"] = "Edit Quiz";          @* Actual page title used by layout *@
+}
+
+<h2>Edit Quiz</h2>
+
+<form asp-action="Edit" method="post" class="mt-3">   @* Form posts to Quizzes/Edit *@
+    @Html.AntiForgeryToken()                          @* Security token to prevent CSRF attacks *@
+
+    @* Hidden field to send the Quiz ID to the server *@
+    <input type="hidden" asp-for="QuizId" />
+
+    @* Quiz title field *@
+    <div class="mb-3">
+        <label asp-for="Title" class="form-label"></label>      @* Generates label *@
+        <input asp-for="Title" class="form-control" />          @* Textbox for quiz title *@
+        <span asp-validation-for="Title" class="text-danger"></span>  @* Validation errors *@
+    </div>
+
+    @* Quiz description textarea *@
+    <div class="mb-3">
+        <label asp-for="Description" class="form-label"></label>   @* Label *@
+        <textarea asp-for="Description" class="form-control"></textarea> @* Multi-line input *@
+        <span asp-validation-for="Description" class="text-danger"></span>
+    </div>
+
+    @* Submit button section *@
+    <button type="submit" class="btn btn-primary">Save</button>     @* Submit form *@
+    <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a> @* Return to list *@
+</form>
+
+@section Scripts {
+    @await Html.PartialAsync("_ValidationScriptsPartial")   @* Enables client-side validation *@
+}

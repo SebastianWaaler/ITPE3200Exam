@@ -1,0 +1,14 @@
+@model QuizApp.Models.QuizResultViewModel   
+@* The view receives a ViewModel containing quiz result info *@
+
+<h1>Quiz Result</h1>   @* Main page heading *@
+
+<h2>@Model.QuizTitle</h2>   @* Displays the title of the quiz the user completed *@
+
+<p>
+    <strong>You scored:</strong>
+    @Model.EarnedPoints / @Model.TotalPoints points   @* Shows earned points out of total points *@
+</p>
+
+@* Link to return to the quizzes list *@
+<a href="/Quiz">Back to Quizzes</a>

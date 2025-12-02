@@ -1,0 +1,47 @@
+@model QuizApp.Models.Quiz     
+@* The view receives a Quiz model containing questions and options *@
+
+<div class="mb-4">
+    <h1 class="mb-1">@Model.Title</h1>          @* Display the quiz title *@
+    <p class="text-muted">@Model.Description</p>      @* Display the quiz description *@
+</div>
+
+@* Form posts answers to the Submit action *@
+<form method="post" asp-action="Submit" class="card shadow-sm p-4">
+
+    @* Pass the QuizId to the server on submit *@
+    <input type="hidden" name="QuizId" value="@Model.QuizId" />
+
+    @* Loop through each question in the quiz *@
+    @foreach (var question in Model.Questions)
+    {
+        <div class="mb-4 p-3 border rounded bg-light">
+            <strong class="d-block mb-2">@question.Text</strong>   @* Display the question text *@
+
+            @* Display each option as a radio button *@
+            @foreach (var option in question.Options)
+            {
+                <div class="form-check mb-1">
+                    <label class="form-check-label">
+                        @* 
+                           Radio button group is named using "question_<id>"
+                           so each question allows exactly one selected answer.
+                        *@
+                        <input type="radio" 
+                               class="form-check-input"
+                               name="question_@question.Id" 
+                               value="@option.Id" />
+
+                        @* Show option text *@
+                        @option.Text
+                    </label>
+                </div>
+            }
+        </div>
+
+        <hr />   @* Visual separator between questions *@
+    }
+
+    @* Submit answers *@
+    <button type="submit" class="btn btn-primary mt-3">Submit Quiz</button>
+</form>

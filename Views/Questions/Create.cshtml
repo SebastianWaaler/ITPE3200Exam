@@ -1,0 +1,104 @@
+@model QuizApp.Models.Question
+@* The view receives a Question model *@
+
+<h2>Create Question — @ViewBag.Quiz.Title</h2> @* Display quiz title from ViewBag *@
+
+<form asp-action="Create" method="post" novalidate>  @* Form posts to Question/Create *@
+
+    @* Hidden field to keep track of which quiz this question belongs to *@
+    <input asp-for="QuizId" type="hidden" />
+
+    @* Question Text Field *@
+    <div class="mb-3">
+        <label asp-for="Text" class="form-label"></label>   @* Auto generates label for Text *@
+        <input asp-for="Text" class="form-control" />        @* Input for question text *@
+        <span asp-validation-for="Text" class="text-danger"></span> @* Validation errors *@
+    </div>
+
+    @* Question Point Value *@
+    <div class="mb-3">
+        <label asp-for="Points" class="form-label"></label>
+        <input asp-for="Points" type="number" class="form-control" /> @* Numeric input *@
+        <span asp-validation-for="Points" class="text-danger"></span>
+    </div>
+
+    <hr />
+    <h4>Answer Options</h4>
+
+    @* Container for dynamic answer options *@
+    <div id="options">
+        @for (int i = 0; i < Model.Options.Count; i++)
+        {
+            @* Each option row includes: text input, radio button for correct option, remove button *@
+            <div class="d-flex align-items-center mb-2 option-row">
+                
+                @* Textbox for option text, bound using index-based naming *@
+                <input name="Options[@i].Text"
+                       value="@Model.Options[i].Text"
+                       class="form-control me-2" />
+
+                @* Radio selects which option is the correct one *@
+                <input type="radio"
+                       name="CorrectIndex"
+                       value="@i"
+                       @(Model.Options[i].IsCorrect ? "checked" : "") />
+
+                @* Remove option button *@
+                <button type="button" class="btn btn-danger btn-sm ms-2 removeOption">X</button>
+            </div>
+        }
+    </div>
+
+    @* Button to add a new option dynamically *@
+    <button type="button" id="addOption" class="btn btn-secondary mt-2">Add Option</button>
+
+    <br /><br />
+
+    @* Submit button and cancel navigation *@
+    <button type="submit" class="btn btn-primary">Save</button>
+
+    <a asp-controller="Quiz" asp-action="Details" asp-route-id="@Model.QuizId" class="btn btn-outline-secondary">Cancel</a>
+
+</form>
+
+@section Scripts {
+<script>
+
+    // Add new answer option dynamically when the button is clicked
+    document.getElementById("addOption").onclick = function () {
+
+        const container = document.getElementById("options");
+
+        // Determine the new index based on current number of option rows
+        const index = container.children.length;
+
+        // Create a new row for an option
+        const row = document.createElement("div");
+        row.classList.add("d-flex", "align-items-center", "mb-2", "option-row");
+
+        // Insert HTML inputs for the new option
+        row.innerHTML = `
+            <input name="Options[${index}].Text"
+                   class="form-control me-2"
+                   placeholder="Option text" />
+
+            <input type="radio" name="CorrectIndex" value="${index}" />
+
+            <button type="button" class="btn btn-danger btn-sm ms-2 removeOption">X</button>
+        `;
+
+        // Add the row to the container
+        container.appendChild(row);
+    };
+
+    // Event delegation: Handles clicking the Remove button for any option
+    document.addEventListener("click", function (e) {
+        if (e.target.classList.contains("removeOption")) {
+            
+            // Remove the entire option row
+            e.target.parentElement.remove();
+        }
+    });
+
+</script>
+}
