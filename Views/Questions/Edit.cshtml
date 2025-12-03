@@ -1,151 +1,169 @@
-@model QuizApp.Models.Question    
-@* The view receives a Question model to edit *@
+@model QuizApp.Models.Question
+@using System.Text.Json
+@using System.Linq
 
-<h2>Edit Question — @(Model.Quiz?.Title ?? "Quiz")</h2> @* Show quiz title if available *@
+@{
+    ViewData["Title"] = "Edit Question";
 
-<form asp-action="Edit" method="post" novalidate>
-    @Html.AntiForgeryToken()      @* Security token to prevent CSRF attacks *@
+    var optionsList = Model.Options?.ToList() ?? new List<QuizApp.Models.Option>();
 
-    @* Hidden fields required to track which question is being edited *@
-    <input asp-for="Id" type="hidden" />
-    <input asp-for="QuizId" type="hidden" />
+    var initialState = new {
+        id = Model.Id,
+        quizId = Model.QuizId,
+        text = Model.Text ?? "",
+        points = Model.Points,
+        options = optionsList.Select(o => new {
+            id = o.Id,
+            text = o.Text ?? "",
+            isCorrect = o.IsCorrect
+        }),
+        correctIndex = optionsList.FindIndex(o => o.IsCorrect)
+    };
 
-    @* Question text input *@
-    <div class="mb-3">
-        <label asp-for="Text" class="form-label"></label>
-        <input asp-for="Text" class="form-control" />
-        <span asp-validation-for="Text" class="text-danger"></span>
-    </div>
+    var initialJson = JsonSerializer.Serialize(initialState);
+}
 
-    @* Points input *@
-    <div class="mb-3">
-        <label asp-for="Points" class="form-label"></label>
-        <input asp-for="Points" type="number" class="form-control" />
-        <span asp-validation-for="Points" class="text-danger"></span>
-    </div>
+<h2>Edit Question — @(Model.Quiz?.Title ?? "Quiz")</h2>
 
-    <hr />
-    <h4>Answer Options</h4>
+<div id="question-edit-app">
 
-    @* Container for all answer option rows *@
-    <div id="options">
-        @for (int i = 0; i < Model.Options.Count; i++)
-        {
-            @* Each row displays one answer option *@
-            <div class="d-flex align-items-center mb-2 option-row">
-                
-                @* Text field for the option text (indexed for model binding) *@
-                <input name="Options[@i].Text"
-                       value="@Model.Options[i].Text"
-                       class="form-control me-2" />
+    <form asp-action="Edit" method="post" novalidate>
+        @Html.AntiForgeryToken()
 
-                @* Radio button to choose the correct option *@
+        <!-- MVC hidden inputs -->
+        <input asp-for="Id" type="hidden" />
+        <input asp-for="QuizId" type="hidden" />
+
+        <!-- Text -->
+        <div class="mb-3">
+            <label asp-for="Text" class="form-label"></label>
+            <input asp-for="Text" class="form-control" v-model="text" />
+            <span asp-validation-for="Text" class="text-danger"></span>
+        </div>
+
+        <!-- Points -->
+        <div class="mb-3">
+            <label asp-for="Points" class="form-label"></label>
+            <input asp-for="Points" type="number" class="form-control" v-model.number="points" />
+            <span asp-validation-for="Points" class="text-danger"></span>
+        </div>
+
+        <hr />
+        <h4>Answer Options</h4>
+
+        <!-- Vue-controlled options -->
+        <div class="option-row mb-2" 
+             v-for="(opt, idx) in options" 
+             :key="idx">
+
+            <div class="d-flex align-items-center">
+
+                <!-- Hidden Option ID -->
+                <input type="hidden"
+                       :name="'Options[' + idx + '].Id'"
+                       :value="opt.id" />
+
+                <!-- Option Text -->
+                <input class="form-control me-2"
+                       :name="'Options[' + idx + '].Text'"
+                       v-model="opt.text" />
+
+                <!-- Hidden IsCorrect sync -->
+                <input type="hidden"
+                       :name="'Options[' + idx + '].IsCorrect'"
+                       :value="opt.isCorrect" />
+
+                <!-- Correct answer selector -->
                 <input type="radio"
                        name="CorrectIndex"
-                       value="@i"
-                       @(Model.Options[i].IsCorrect ? "checked" : "") />
+                       :value="idx"
+                       v-model.number="correctIndex" />
 
-                @* Remove option button *@
-                <button type="button" class="btn btn-danger btn-sm ms-2 removeOption">X</button>
+                <!-- Remove Option -->
+                <button type="button"
+                        class="btn btn-danger btn-sm ms-2"
+                        @@click="removeOption(idx)">
+                    X
+                </button>
             </div>
-        }
-    </div>
+        </div>
 
-    @* Add a new answer option dynamically *@
-    <button type="button" id="addOption" class="btn btn-secondary mt-2">Add Option</button>
+        <!-- Add option -->
+        <button type="button"
+                class="btn btn-secondary mt-2"
+                @@click="addOption">
+            Add Option
+        </button>
 
-    <br /><br />
+        <br /><br />
 
-    @* Save changes *@
-    <button type="submit" class="btn btn-primary">Save</button>
+        <button type="submit" class="btn btn-primary">Save</button>
 
-    @* Cancel and go back to Quiz details *@
-    <a asp-controller="Quiz"
-       asp-action="Details"
-       asp-route-id="@Model.QuizId"
-       class="btn btn-outline-secondary">
-        Cancel
-    </a>
-</form>
+        <a asp-controller="Quiz"
+           asp-action="Details"
+           asp-route-id="@Model.QuizId"
+           class="btn btn-outline-secondary">
+            Cancel
+        </a>
+
+    </form>
+</div>
 
 @section Scripts {
-    @await Html.PartialAsync("_ValidationScriptsPartial")
-    <partial name="_ValidationScriptsPartial" />
+    
 
     <script>
+        const { createApp, watch } = Vue;
 
-    // GLOBAL error handler for this page
-    window.addEventListener("error", function (event) {
-        console.error("Client error on Edit Question page:", event.error || event.message);
-        alert("Something went wrong on this page. Please try again.");
-    });
+        const initial = @Html.Raw(initialJson);
 
-    try {
+        createApp({
+            data() {
+                return {
+                    id: initial.id,
+                    quizId: initial.quizId,
+                    text: initial.text,
+                    points: initial.points,
+                    options: initial.options.map(o => ({
+                        id: o.id,
+                        text: o.text,
+                        isCorrect: o.isCorrect
+                    })),
+                    correctIndex: initial.correctIndex ?? -1
+                };
+            },
 
-        // Renumbers option indexes so the model binder can correctly bind the list
-        function renumberOptions() {
-            try {
-                const rows = document.querySelectorAll("#options .option-row");
-
-                rows.forEach((row, i) => {
-                    const text = row.querySelector('input.form-control');
-                    const radio = row.querySelector('input[type="radio"]');
-
-                    // Update input names to follow Options[index].Property format
-                    text.name = `Options[${i}].Text`;
-                    radio.name = "CorrectIndex";
-                    radio.value = i;
-                });
-
-            } catch (err) {
-                console.error("Error in renumberOptions:", err);
-                alert("Unable to update option numbering.");
-            }
-        }
-
-        // Add a new blank option row when clicking "Add Option"
-        document.getElementById("addOption").onclick = function () {
-            try {
-                const container = document.getElementById("options");
-
-                const row = document.createElement("div");
-                row.classList.add("d-flex", "align-items-center", "mb-2", "option-row");
-
-                row.innerHTML = `
-                    <input class="form-control me-2" placeholder="Option text" />
-                    <input type="radio" name="CorrectIndex" />
-                    <button type="button" class="btn btn-danger btn-sm ms-2 removeOption">X</button>
-                `;
-
-                container.appendChild(row);
-                renumberOptions();
-
-            } catch (err) {
-                console.error("Error adding new option:", err);
-                alert("Could not add a new answer option.");
-            }
-        };
-
-        // Remove an option row when clicking its "X" button
-        document.addEventListener("click", function (e) {
-            try {
-                if (e.target.classList.contains("removeOption")) {
-                    // Remove the entire option row
-                    e.target.closest(".option-row").remove();
-
-                    // Re-index remaining options
-                    renumberOptions();
+            watch: {
+                correctIndex(newVal) {
+                    this.options.forEach((o, i) => {
+                        o.isCorrect = (i === newVal);
+                    });
                 }
-            } catch (err) {
-                console.error("Error removing option row:", err);
-                alert("Could not remove this answer option.");
+            },
+
+            methods: {
+                addOption() {
+                    this.options.push({
+                        id: 0,
+                        text: "",
+                        isCorrect: false
+                    });
+                },
+
+                removeOption(index) {
+                    this.options.splice(index, 1);
+
+                    if (this.correctIndex === index) {
+                        this.correctIndex = -1;
+                    } else if (this.correctIndex > index) {
+                        this.correctIndex--;
+                    }
+                }
             }
+        }).mount("#question-edit-app");
+
+        window.addEventListener("error", e => {
+            console.error("Client error on Edit Question page:", e.error || e.message);
         });
-
-    } catch (err) {
-        console.error("Fatal client error in Edit Question script:", err);
-        alert("An unexpected error occurred.");
-    }
-
     </script>
 }

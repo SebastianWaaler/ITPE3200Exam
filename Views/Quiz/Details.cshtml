@@ -1,99 +1,98 @@
-@model QuizApp.Models.Quiz      
+@model QuizApp.Models.Quiz
 @using System.Text.Json
 
 @{
     ViewData["Title"] = "Quiz Details";
 
-    // Project server model to a JS-friendly anonymous object and serialize to JSON
-    var questionsJson = JsonSerializer.Serialize(
-        Model.Questions.Select(q => new
-        {
+    // Convert server model → Vue-friendly JSON (camelCase)
+    var initialJson = JsonSerializer.Serialize(new {
+        quizId = Model.QuizId,
+        title = Model.Title ?? "",
+        description = Model.Description ?? "",
+        questions = Model.Questions.Select(q => new {
             id = q.Id,
             text = q.Text,
             points = q.Points,
-            options = q.Options.Select(o => new
-            {
+            options = q.Options.Select(o => new {
                 id = o.Id,
                 text = o.Text,
                 isCorrect = o.IsCorrect
             })
         })
-    );
+    });
 }
 
 <div id="quiz-details-app">
 
-    <h2>@Model.Title</h2>
-    <p>@Model.Description</p>
+    <h2>{{ quiz.title }}</h2>
+    <p>{{ quiz.description }}</p>
 
     <h3>Questions</h3>
 
-    <!-- If no questions -->
-    <div v-if="questions.length === 0">
+    <!-- No questions -->
+    <div v-if="quiz.questions.length === 0">
         <p>No questions added yet.</p>
 
         <a class="btn btn-primary"
-           asp-controller="Questions"
-           asp-action="Create"
-           :asp-route-quizId="quizId">
+           :href="'/Questions/Create?quizId=' + quiz.quizId">
             Add First Question
         </a>
     </div>
 
-    <!-- If there are questions -->
+    <!-- Questions exist -->
     <div v-else>
         <a class="btn btn-success mb-3"
-           asp-controller="Questions"
-           asp-action="Create"
-           :asp-route-quizId="quizId">
+           :href="'/Questions/Create?quizId=' + quiz.quizId">
             Add Question
         </a>
 
         <ul class="list-group">
-            <li class="list-group-item" v-for="q in questions" :key="q.id">
+            <li class="list-group-item"
+                v-for="q in quiz.questions"
+                :key="q.id">
 
-                <strong>{{ q.text }}</strong> ({{ q.points }} points)
+                <strong>{{ q.text }}</strong>
+                ({{ q.points }} points)
 
                 <ul>
-                    <li v-for="opt in q.options" :key="opt.id"
+                    <li v-for="opt in q.options"
+                        :key="opt.id"
                         :style="opt.isCorrect ? 'color:green;font-weight:bold' : ''">
-
+                        
                         {{ opt.text }}
                         <span v-if="opt.isCorrect">✓</span>
                     </li>
                 </ul>
 
-                <a asp-controller="Questions"
-                   asp-action="Edit"
-                   :asp-route-id="q.id">Edit</a>
-
+                <a :href="'/Questions/Edit/' + q.id">Edit</a>
                 |
+                <a :href="'/Questions/Delete/' + q.id">Delete</a>
 
-                <a asp-controller="Questions"
-                   asp-action="Delete"
-                   :asp-route-id="q.id">Delete</a>
             </li>
         </ul>
     </div>
+    <a class="btn btn-secondary" :href="`/Quiz`">Cancel</a>
+
 </div>
 
 @section Scripts {
-    <partial name="_ValidationScriptsPartial" />
 
     <script>
         const { createApp } = Vue;
 
+        // Server → Vue JSON payload
+        const initial = @Html.Raw(initialJson);
+
         createApp({
             data() {
                 return {
-                    quizId: @Model.QuizId,
-                    questions: @Html.Raw(questionsJson)
+                    quiz: initial
                 };
             }
         }).mount("#quiz-details-app");
 
-        // client-side error logger
-        window.addEventListener("error", function (event) {
+        // client sider error handling
+        window.addEventListener("error", (event) => {
             console.error("Client error on Quiz Details page:", event.error || event.message);
             alert("Something went wrong. Please try again.");
         });

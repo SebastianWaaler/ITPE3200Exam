@@ -1,24 +1,53 @@
 @model Question
-<input type="hidden" asp-for="QuizId" />
-<div class="mb-3">
-    <label asp-for="Text" class="form-label"></label>
-    <input asp-for="Text" class="form-control" />
-    <span asp-validation-for="Text" class="text-danger"></span>
-</div>
-<div class="mb-3">
-    <label asp-for="Points" class="form-label"></label>
-    <input asp-for="Points" class="form-control" type="number" />
-    <span asp-validation-for="Points" class="text-danger"></span>
+@using System.Text.Json
+
+@{
+    var initialState = new {
+        quizId = Model.QuizId,
+        text = Model.Text ?? "",
+        points = Model.Points
+    };
+
+    var initialJson = JsonSerializer.Serialize(initialState);
+}
+
+<div id="question-form-app">
+
+    <input type="hidden" asp-for="QuizId" v-model="quizId" />
+
+    <div class="mb-3">
+        <label asp-for="Text" class="form-label"></label>
+        <input asp-for="Text" class="form-control" v-model="text" />
+        <span asp-validation-for="Text" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Points" class="form-label"></label>
+        <input asp-for="Points" class="form-control" type="number" v-model.number="points" />
+        <span asp-validation-for="Points" class="text-danger"></span>
+    </div>
+
 </div>
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
 
     <script>
-        // Client-side error handler for this page
-        window.addEventListener("error", function (event) {
-            console.error("Client error on Create Question page:", event.error || event.message);
-            alert("Something went wrong on this page. Please try again.");
+        const initial = @Html.Raw(initialJson);
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    quizId: initial.quizId,
+                    text: initial.text,
+                    points: initial.points
+                };
+            }
+        }).mount("#question-form-app");
+
+        window.addEventListener("error", event => {
+            console.error("Client error on Question Form page:", event.error || event.message);
         });
     </script>
 }

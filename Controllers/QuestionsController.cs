@@ -1,21 +1,21 @@
-using Microsoft.AspNetCore.Mvc;                                   // MVC base classes / attributes
-using QuizApp.Models;                                             // Question, Quiz, Option
-using System.Threading.Tasks;                                     // Task/async
+using Microsoft.AspNetCore.Mvc;
+using QuizApp.Models;
+using System.Threading.Tasks;
 using System.Linq;
-using System.Collections.Generic;                                 // List<>
-using Microsoft.Extensions.Logging;                               // ILogger
-using QuizApp.Data.Repositories.Interfaces;                       // IQuestionRepository, IQuizRepository
-using Microsoft.AspNetCore.Authorization;                         // [Authorize]
+using System.Collections.Generic;
+using Microsoft.Extensions.Logging;
+using QuizApp.Data.Repositories.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 
 namespace QuizApp.Controllers
 {
-    // ADMIN ONLY: Only Admins can manage questions
     [Authorize(Roles = "Admin")]
+    [Route("Questions")]
     public class QuestionsController : Controller
     {
-        private readonly IQuestionRepository _questions;          // Repository for Question
-        private readonly IQuizRepository _quizzes;                // Repository for Quiz
-        private readonly ILogger<QuestionsController> _logger;    // Logger for this controller
+        private readonly IQuestionRepository _questions;
+        private readonly IQuizRepository _quizzes;
+        private readonly ILogger<QuestionsController> _logger;
 
         public QuestionsController(
             IQuestionRepository questions,
@@ -28,64 +28,49 @@ namespace QuizApp.Controllers
         }
 
         // GET: /Questions/Details/5
-        public async Task<IActionResult> Details(int? id)
+        [HttpGet("Details/{id:int}")]
+        public async Task<IActionResult> Details(int id)
         {
-            if (id == null)
-            {
-                _logger.LogWarning("Details called with null id.");
-                return NotFound();
-            }
-
             try
             {
-                var question = await _questions.GetByIdAsync(id.Value);   // via repository (includes Quiz + Options)
-
-                if (question == null)
-                {
-                    _logger.LogWarning("Question {QuestionId} not found in Details.", id);
-                    return NotFound();
-                }
+                var question = await _questions.GetByIdAsync(id);
+                if (question == null) return NotFound();
 
                 return View(question);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error loading Details for Question {QuestionId}.", id);
+                _logger.LogError(ex, "Error loading details for Question {QuestionId}", id);
                 return RedirectToAction("Error", "Home");
             }
         }
 
         // GET: /Questions/Create?quizId=5
-        [HttpGet]
+        [HttpGet("Create")]
         public async Task<IActionResult> Create(int quizId)
         {
             try
             {
-                var quiz = await _quizzes.GetByIdAsync(quizId);     // load quiz via repository
-                if (quiz == null)
-                {
-                    _logger.LogWarning("Quiz {QuizId} not found in Create (GET).", quizId);
-                    return NotFound();
-                }
+                var quiz = await _quizzes.GetByIdAsync(quizId);
+                if (quiz == null) return NotFound();
 
-                // Prepare an empty Question for the form
                 ViewBag.Quiz = quiz;
 
                 return View(new Question
                 {
                     QuizId = quizId,
-                    Points = 1 // default points
+                    Points = 1
                 });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error showing Create question form for Quiz {QuizId}.", quizId);
+                _logger.LogError(ex, "Error loading question creation form.");
                 return RedirectToAction("Error", "Home");
             }
         }
 
         // POST: /Questions/Create
-        [HttpPost]
+        [HttpPost("Create")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(Question question, int? CorrectIndex)
         {
@@ -94,188 +79,190 @@ namespace QuizApp.Controllers
                 var quiz = await _quizzes.GetByIdAsync(question.QuizId);
                 if (quiz == null)
                 {
-                    _logger.LogWarning("Quiz {QuizId} not found in Create (POST).", question.QuizId);
-                    ModelState.AddModelError("", $"No quiz found with ID: {question.QuizId}");
+                    ModelState.AddModelError("", "Quiz not found.");
                 }
                 else
                 {
                     question.Quiz = quiz;
                 }
 
-                // Ensure Options list exists
                 question.Options ??= new List<Option>();
 
-                // Remove empty options, trim text
+                // Clean options
                 question.Options = question.Options
                     .Where(o => !string.IsNullOrWhiteSpace(o.Text))
-                    .Select(o => new Option
-                    {
-                        Text = o.Text.Trim(),
-                        IsCorrect = false   // set later
-                    })
+                    .Select(o => new Option { Text = o.Text.Trim(), IsCorrect = false })
                     .ToList();
 
-                // Must have at least 2 options
                 if (question.Options.Count < 2)
-                {
-                    _logger.LogWarning("Validation failed in Create: less than 2 options for Quiz {QuizId}.", question.QuizId);
-                    ModelState.AddModelError("", "Please enter at least two answer options.");
-                }
+                    ModelState.AddModelError("", "At least two options required.");
 
-                // A correct answer must be selected
                 if (CorrectIndex == null || CorrectIndex < 0 || CorrectIndex >= question.Options.Count)
-                {
-                    _logger.LogWarning("Validation failed in Create: no correct option selected for Quiz {QuizId}.", question.QuizId);
-                    ModelState.AddModelError("", "Please select which answer is correct.");
-                }
+                    ModelState.AddModelError("", "Select a correct answer.");
                 else
-                {
                     question.Options[(int)CorrectIndex].IsCorrect = true;
-                }
 
-                // Redisplay form if validation failed
                 if (!ModelState.IsValid)
                 {
-                    ViewBag.Quiz = await _quizzes.GetByIdAsync(question.QuizId);
+                    ViewBag.Quiz = quiz;
                     return View(question);
                 }
 
-                // Link options to the question
                 foreach (var o in question.Options)
                     o.Question = question;
 
-                // Save via repository
                 await _questions.AddAsync(question);
-
-                _logger.LogInformation("Question {QuestionId} created for Quiz {QuizId}.", question.Id, question.QuizId);
 
                 return RedirectToAction(nameof(QuizController.Details), "Quiz", new { id = question.QuizId });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error creating Question for Quiz {QuizId}.", question.QuizId);
+                _logger.LogError(ex, "Error creating question");
                 return RedirectToAction("Error", "Home");
             }
         }
 
         // GET: /Questions/Edit/5
-        public async Task<IActionResult> Edit(int? id)
+        [HttpGet("Edit/{id:int}")]
+        public async Task<IActionResult> Edit(int id)
         {
-            if (id == null)
-            {
-                _logger.LogWarning("Edit (GET) called with null id.");
-                return NotFound();
-            }
-
             try
             {
-                var question = await _questions.GetByIdAsync(id.Value);   // includes Quiz + Options
-
-                if (question == null)
-                {
-                    _logger.LogWarning("Question {QuestionId} not found in Edit (GET).", id);
-                    return NotFound();
-                }
+                var question = await _questions.GetByIdAsync(id);
+                if (question == null) return NotFound();
 
                 return View(question);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error loading Edit form for Question {QuestionId}.", id);
+                _logger.LogError(ex, "Error loading edit form for Question {QuestionId}", id);
                 return RedirectToAction("Error", "Home");
             }
         }
 
         // POST: /Questions/Edit/5
-        [HttpPost]
+        [HttpPost("Edit/{id:int}")]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("Id,Text,Points,QuizId")] Question question)
+        public async Task<IActionResult> Edit(
+            int id,
+            Question formQuestion,
+            List<Option>? Options,
+            string? DeletedOptionIds,
+            int? CorrectIndex)
         {
-            if (id != question.Id)
-            {
-                _logger.LogWarning("Edit (POST) called with mismatched id. Route id: {RouteId}, Model id: {ModelId}", id, question.Id);
+            if (id != formQuestion.Id)
                 return NotFound();
-            }
 
             try
             {
-                // Validate parent still exists
-                if (!await _quizzes.ExistsAsync(question.QuizId))
-                {
-                    _logger.LogWarning("Quiz {QuizId} not found in Edit (POST).", question.QuizId);
-                    ModelState.AddModelError("", "Selected quiz does not exist.");
-                }
+                var question = await _questions.GetByIdAsync(id);
+                if (question == null) return NotFound();
+
+                // Update question fields
+                question.Text = formQuestion.Text?.Trim() ?? "";
+                question.Points = formQuestion.Points;
+
+                Options ??= new List<Option>();
+
+                var cleanedOptions = Options
+                    .Where(o => !string.IsNullOrWhiteSpace(o.Text))
+                    .Select(o => new Option
+                    {
+                        Id = o.Id,
+                        Text = o.Text.Trim(),
+                        IsCorrect = false,
+                        QuestionId = question.Id
+                    })
+                    .ToList();
+
+                if (cleanedOptions.Count < 2)
+                    ModelState.AddModelError("", "A question must have at least 2 answer options.");
+
+                if (CorrectIndex == null || CorrectIndex < 0 || CorrectIndex >= cleanedOptions.Count)
+                    ModelState.AddModelError("", "Select which answer is correct.");
+                else
+                    cleanedOptions[(int)CorrectIndex].IsCorrect = true;
 
                 if (!ModelState.IsValid)
                     return View(question);
 
-                await _questions.UpdateAsync(question);            // UPDATE via repository
+                // Deleted options
+                var deletedIds = new List<int>();
+                if (!string.IsNullOrWhiteSpace(DeletedOptionIds))
+                {
+                    deletedIds = DeletedOptionIds
+                        .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                        .Select(int.Parse)
+                        .ToList();
+                }
 
-                _logger.LogInformation("Question {QuestionId} updated for Quiz {QuizId}.", question.Id, question.QuizId);
+                foreach (var deleteId in deletedIds)
+                {
+                    var delOpt = question.Options.FirstOrDefault(o => o.Id == deleteId);
+                    if (delOpt != null)
+                        question.Options.Remove(delOpt);
+                }
+
+                // Add/update options
+                foreach (var opt in cleanedOptions)
+                {
+                    if (opt.Id == 0)
+                    {
+                        question.Options.Add(new Option
+                        {
+                            Text = opt.Text,
+                            IsCorrect = opt.IsCorrect,
+                            QuestionId = question.Id
+                        });
+                    }
+                    else
+                    {
+                        var existing = question.Options.First(o => o.Id == opt.Id);
+                        existing.Text = opt.Text;
+                        existing.IsCorrect = opt.IsCorrect;
+                    }
+                }
+
+                await _questions.UpdateAsync(question);
 
                 return RedirectToAction(nameof(QuizController.Details), "Quiz", new { id = question.QuizId });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error editing Question {QuestionId}.", question.Id);
+                _logger.LogError(ex, "Error editing Question {QuestionId}", id);
                 return RedirectToAction("Error", "Home");
             }
         }
 
         // GET: /Questions/Delete/5
-        public async Task<IActionResult> Delete(int? id)
+        [HttpGet("Delete/{id:int}")]
+        public async Task<IActionResult> Delete(int id)
         {
-            if (id == null)
-            {
-                _logger.LogWarning("Delete (GET) called with null id.");
-                return NotFound();
-            }
+            var question = await _questions.GetByIdAsync(id);
+            if (question == null) return NotFound();
 
-            try
-            {
-                var question = await _questions.GetByIdAsync(id.Value);   // includes Quiz
-
-                if (question == null)
-                {
-                    _logger.LogWarning("Question {QuestionId} not found in Delete (GET).", id);
-                    return NotFound();
-                }
-
-                return View(question);           // Views/Questions/Delete.cshtml
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error showing Delete confirmation for Question {QuestionId}.", id);
-                return RedirectToAction("Error", "Home");
-            }
+            return View(question);
         }
 
         // POST: /Questions/Delete/5
-        [HttpPost, ActionName("Delete")]
+        [HttpPost("Delete/{id:int}")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
             try
             {
-                var question = await _questions.GetByIdAsync(id);         // load with Options + Quiz
-
-                if (question == null)
-                {
-                    _logger.LogWarning("Question {QuestionId} not found in DeleteConfirmed.", id);
-                    return NotFound();
-                }
+                var question = await _questions.GetByIdAsync(id);
+                if (question == null) return NotFound();
 
                 var quizId = question.QuizId;
 
-                await _questions.DeleteAsync(id);                         // DELETE via repository
-
-                _logger.LogInformation("Question {QuestionId} deleted for Quiz {QuizId}.", id, quizId);
+                await _questions.DeleteAsync(id);
 
                 return RedirectToAction(nameof(QuizController.Details), "Quiz", new { id = quizId });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error deleting Question {QuestionId}.", id);
+                _logger.LogError(ex, "Error deleting Question {QuestionId}", id);
                 return RedirectToAction("Error", "Home");
             }
         }

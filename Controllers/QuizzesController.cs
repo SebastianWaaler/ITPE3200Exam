@@ -1,21 +1,20 @@
-using System;                                                  // Exception, etc.
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using QuizApp.Data.Repositories.Interfaces;
+using QuizApp.Models;
+using System;
 using System.Linq;
-using System.Threading.Tasks;                                  // Task / async
-using Microsoft.AspNetCore.Authorization;                      // [Authorize], [AllowAnonymous]
-using Microsoft.AspNetCore.Mvc;                                // MVC base classes / attributes
-using Microsoft.EntityFrameworkCore;                           // For DbUpdateConcurrencyException
-using Microsoft.Extensions.Logging;                            // ILogger<T>
-using QuizApp.Data.Repositories.Interfaces;                    // IQuizRepository
-using QuizApp.Models;                                          // Quiz, Question, Option models
+using System.Threading.Tasks;
 
 namespace QuizApp.Controllers
 {
-    // Require login by default for this controller
-    [Authorize]
+    [Authorize] // default: must be logged in
     public class QuizController : Controller
     {
-        private readonly IQuizRepository _quizzes;             // Repository instead of DbContext
-        private readonly ILogger<QuizController> _logger;       // Logger for this controller
+        private readonly IQuizRepository _quizzes;
+        private readonly ILogger<QuizController> _logger;
 
         public QuizController(IQuizRepository quizzes, ILogger<QuizController> logger)
         {
@@ -23,7 +22,7 @@ namespace QuizApp.Controllers
             _logger = logger;
         }
 
-        // Everyone (even not logged in) can see list of quizzes
+        // PUBLIC: everyone can see quiz list
         [AllowAnonymous]
         public async Task<IActionResult> Index()
         {
@@ -34,65 +33,50 @@ namespace QuizApp.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error loading quiz list in Index.");
+                _logger.LogError(ex, "Error loading quiz list.");
                 return RedirectToAction("Error", "Home");
             }
         }
 
-        // Everyone can see details
-        [AllowAnonymous]
+        // ADMIN: quiz details with questions/options (admin management view)
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Details(int? id)
         {
-            if (id == null)
-            {
-                _logger.LogWarning("Details called with null id.");
-                return NotFound();
-            }
+            if (id == null) return NotFound();
 
             try
             {
-                var quiz = await _quizzes.GetByIdAsync(id.Value); // quiz with questions + options
-
-                if (quiz == null)
-                {
-                    _logger.LogWarning("Quiz {QuizId} not found in Details.", id);
-                    return NotFound();
-                }
+                var quiz = await _quizzes.GetByIdAsync(id.Value);
+                if (quiz == null) return NotFound();
 
                 return View(quiz);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error loading Details for Quiz {QuizId}.", id);
+                _logger.LogError(ex, "Error loading Details for quiz {QuizId}", id);
                 return RedirectToAction("Error", "Home");
             }
         }
 
-        // 🔒 Admin only: create quiz (GET)
+        // ADMIN: create quiz (view)
         [Authorize(Roles = "Admin")]
         public IActionResult Create()
         {
             return View();
         }
 
-        // 🔒 Admin only: create quiz (POST)
+        // ADMIN: create quiz (fallback MVC POST – even if you mostly use API)
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> Create([Bind("Title, Description")] Quiz quiz)
+        public async Task<IActionResult> Create([Bind("Title,Description")] Quiz quiz)
         {
+            if (!ModelState.IsValid) return View(quiz);
+
             try
             {
-                if (ModelState.IsValid)
-                {
-                    await _quizzes.AddAsync(quiz);
-
-                    _logger.LogInformation("Quiz {QuizId} created.", quiz.QuizId);
-
-                    return RedirectToAction(nameof(Index));
-                }
-
-                return View(quiz);
+                await _quizzes.AddAsync(quiz);
+                return RedirectToAction(nameof(Index));
             }
             catch (Exception ex)
             {
@@ -101,107 +85,73 @@ namespace QuizApp.Controllers
             }
         }
 
-        // 🔒 Admin only: edit quiz (GET)
+        // ADMIN: edit quiz (view)
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Edit(int? id)
         {
-            if (id == null)
-            {
-                _logger.LogWarning("Edit (GET) called with null id.");
-                return NotFound();
-            }
+            if (id == null) return NotFound();
 
             try
             {
                 var quiz = await _quizzes.GetByIdAsync(id.Value);
-                if (quiz == null)
-                {
-                    _logger.LogWarning("Quiz {QuizId} not found in Edit (GET).", id);
-                    return NotFound();
-                }
+                if (quiz == null) return NotFound();
 
-                return View("~/Views/Quiz/Edit.cshtml", quiz);
+                return View(quiz);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error loading Edit form for Quiz {QuizId}.", id);
+                _logger.LogError(ex, "Error loading Edit form for quiz {QuizId}", id);
                 return RedirectToAction("Error", "Home");
             }
         }
 
-        // 🔒 Admin only: edit quiz (POST)
+        // ADMIN: edit quiz (fallback MVC POST – your Vue/API also protects)
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Edit(int id, [Bind("QuizId,Title,Description")] Quiz quiz)
         {
-            if (id != quiz.QuizId)
-            {
-                _logger.LogWarning("Edit (POST) called with mismatched id. Route id: {RouteId}, Model id: {ModelId}", id, quiz.QuizId);
-                return NotFound();
-            }
-
-            if (!ModelState.IsValid)
-                return View(quiz);
+            if (id != quiz.QuizId) return NotFound();
+            if (!ModelState.IsValid) return View(quiz);
 
             try
             {
                 await _quizzes.UpdateAsync(quiz);
-
-                _logger.LogInformation("Quiz {QuizId} updated.", quiz.QuizId);
+                return RedirectToAction(nameof(Index));
             }
             catch (DbUpdateConcurrencyException ex)
             {
-                if (!await _quizzes.ExistsAsync(quiz.QuizId))
-                {
-                    _logger.LogWarning(ex, "Concurrency error: Quiz {QuizId} no longer exists.", quiz.QuizId);
-                    return NotFound();
-                }
-                else
-                {
-                    _logger.LogError(ex, "Concurrency error updating Quiz {QuizId}.", quiz.QuizId);
-                    throw;
-                }
+                _logger.LogError(ex, "Concurrency error editing quiz {QuizId}", quiz.QuizId);
+                return RedirectToAction("Error", "Home");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error editing Quiz {QuizId}.", quiz.QuizId);
+                _logger.LogError(ex, "Error editing quiz {QuizId}", quiz.QuizId);
                 return RedirectToAction("Error", "Home");
             }
-
-            return RedirectToAction(nameof(Index));
         }
 
-        // 🔒 Admin only: delete quiz (GET)
+        // ADMIN: delete quiz (confirm view)
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(int? id)
         {
-            if (id == null)
-            {
-                _logger.LogWarning("Delete (GET) called with null id.");
-                return NotFound();
-            }
+            if (id == null) return NotFound();
 
             try
             {
                 var quiz = await _quizzes.GetByIdAsync(id.Value);
-
-                if (quiz == null)
-                {
-                    _logger.LogWarning("Quiz {QuizId} not found in Delete (GET).", id);
-                    return NotFound();
-                }
+                if (quiz == null) return NotFound();
 
                 return View(quiz);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error showing Delete confirmation for Quiz {QuizId}.", id);
+                _logger.LogError(ex, "Error loading Delete view for quiz {QuizId}", id);
                 return RedirectToAction("Error", "Home");
             }
         }
 
-        // 🔒 Admin only: delete quiz (POST)
+        // ADMIN: delete quiz (POST)
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
@@ -209,51 +159,35 @@ namespace QuizApp.Controllers
         {
             try
             {
-                var quiz = await _quizzes.GetByIdAsync(id);
-
-                if (quiz == null)
-                {
-                    _logger.LogWarning("Quiz {QuizId} not found in DeleteConfirmed.", id);
-                    return NotFound();
-                }
-
                 await _quizzes.DeleteAsync(id);
-
-                _logger.LogInformation("Quiz {QuizId} deleted.", id);
-
                 return RedirectToAction(nameof(Index));
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error deleting Quiz {QuizId}.", id);
+                _logger.LogError(ex, "Error deleting quiz {QuizId}", id);
                 return RedirectToAction("Error", "Home");
             }
         }
 
-        // 🔐 Login required to take quiz
+        // LOGGED-IN USERS ONLY: Take quiz
         [Authorize]
         public async Task<IActionResult> Take(int id)
         {
             try
             {
                 var quiz = await _quizzes.GetByIdAsync(id);
-
-                if (quiz == null)
-                {
-                    _logger.LogWarning("Quiz {QuizId} not found in Take.", id);
-                    return NotFound();
-                }
+                if (quiz == null) return NotFound();
 
                 return View(quiz);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error loading Take view for Quiz {QuizId}.", id);
+                _logger.LogError(ex, "Error loading Take view for quiz {QuizId}", id);
                 return RedirectToAction("Error", "Home");
             }
         }
 
-        // 🔐 Login required to submit answers
+        // LOGGED-IN USERS ONLY: Submit answers
         [HttpPost]
         [Authorize]
         public async Task<IActionResult> Submit(int QuizId)
@@ -261,12 +195,7 @@ namespace QuizApp.Controllers
             try
             {
                 var quiz = await _quizzes.GetByIdAsync(QuizId);
-
-                if (quiz == null)
-                {
-                    _logger.LogWarning("Quiz {QuizId} not found in Submit.", QuizId);
-                    return NotFound();
-                }
+                if (quiz == null) return NotFound();
 
                 int totalPoints = 0;
                 int earnedPoints = 0;
@@ -274,17 +203,13 @@ namespace QuizApp.Controllers
                 foreach (var question in quiz.Questions)
                 {
                     totalPoints += question.Points;
-
-                    string formKey = $"question_{question.Id}";
+                    string formKey = "question_" + question.Id;
 
                     if (!Request.Form.ContainsKey(formKey))
                         continue;
 
                     int selectedOptionId = int.Parse(Request.Form[formKey]!);
-
-                    var selectedOption =
-                        question.Options.First(o => o.Id == selectedOptionId);
-
+                    var selectedOption = question.Options.First(o => o.Id == selectedOptionId);
                     if (selectedOption.IsCorrect)
                     {
                         earnedPoints += question.Points;
@@ -298,14 +223,11 @@ namespace QuizApp.Controllers
                     EarnedPoints = earnedPoints
                 };
 
-                _logger.LogInformation("Quiz {QuizId} submitted. Score: {Earned}/{Total}.",
-                    QuizId, earnedPoints, totalPoints);
-
                 return View("QuizResult", result);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error submitting Quiz {QuizId}.", QuizId);
+                _logger.LogError(ex, "Error submitting quiz {QuizId}", QuizId);
                 return RedirectToAction("Error", "Home");
             }
         }

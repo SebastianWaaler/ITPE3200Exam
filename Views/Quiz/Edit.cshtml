@@ -1,62 +1,72 @@
 @model QuizApp.Models.Quiz
+@using System.Text.Json
 
 @{
     ViewData["Title"] = "Edit Quiz";
+
+    var quizJson = JsonSerializer.Serialize(new {
+        quizId = Model.QuizId,
+        title = Model.Title ?? "",
+        description = Model.Description ?? ""
+    });
 }
 
 <h2>Edit Quiz</h2>
 
 <div id="quiz-edit-app">
-    <form asp-action="Edit" method="post" class="mt-3">
-        @Html.AntiForgeryToken()
 
-        <!-- Hidden ID field-->
-        <input type="hidden" asp-for="QuizId" />
+    <div class="mb-3">
+        <label>Title</label>
+        <input class="form-control" v-model="title" />
+    </div>
 
-        <!-- Quiz title -->
-        <div class="mb-3">
-            <label asp-for="Title" class="form-label"></label>
-            <input asp-for="Title"
-                   class="form-control"
-                   v-model="title" />
-            <span asp-validation-for="Title" class="text-danger"></span>
-        </div>
+    <div class="mb-3">
+        <label>Description</label>
+        <textarea class="form-control" v-model="description"></textarea>
+    </div>
 
-        <!-- Quiz description -->
-        <div class="mb-3">
-            <label asp-for="Description" class="form-label"></label>
-            <textarea asp-for="Description"
-                      class="form-control"
-                      v-model="description"></textarea>
-            <span asp-validation-for="Description" class="text-danger"></span>
-        </div>
+    <button class="btn btn-primary" @@click="updateQuiz">Save</button>
+    <a class="btn btn-secondary" :href="`/Quiz`">Cancel</a>
 
-        <!-- Buttons -->
-        <button type="submit" class="btn btn-primary">Save</button>
-        <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
-    </form>
 </div>
 
 @section Scripts {
-    <partial name="_ValidationScriptsPartial" />
+<script type="module">
+    import QuizService from "/js/QuizService.js";
+    const { createApp } = Vue;
 
-    <script>
-        const { createApp } = Vue;
+    const initial = @Html.Raw(quizJson);
 
-        createApp({
-            data() {
-                return {
-                    // Initialize Vue with values coming from the server Model
-                    title: '@(Model?.Title?.Replace("'", "\\'") ?? "")',
-                    description: '@(Model?.Description?.Replace("'", "\\'") ?? "")'
-                };
+    createApp({
+        data() {
+            return {
+                quizId: initial.quizId,
+                title: initial.title,
+                description: initial.description
+            };
+        },
+        methods: {
+            async updateQuiz() {
+                try {
+                    await QuizService.update({
+                        quizId: this.quizId,  
+                        title: this.title,
+                        description: this.description
+                    });
+
+                    window.location.href = `/Quiz`;
+                }
+                catch (err) {
+                    console.error(err);
+                    alert("Failed to update quiz.");
+                }
             }
-        }).mount("#quiz-edit-app");
+        }
+    }).mount("#quiz-edit-app");
 
-        // client-side error logger
-        window.addEventListener("error", function (event) {
-            console.error("Client error on Edit Quiz page:", event.error || event.message);
-            alert("Something went wrong. Please try again.");
-        });
-    </script>
+    window.addEventListener("error", function (event) {
+        console.error("Client error on Edit Quiz page:", event.error || event.message);
+        alert("Something went wrong on this page. Please try again.");
+    });
+</script>
 }

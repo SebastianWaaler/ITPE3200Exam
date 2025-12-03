@@ -1,25 +1,49 @@
 @model Quiz
+@using System.Text.Json
+
 @{
     ViewData["Title"] = "Delete Quiz";
-}
-<h2>Delete Quiz</h2>
-<p>Are you sure you want to delete <strong>@Model.Title</strong>?</p>
 
-<form asp-action="Delete" method="post">
-    <input type="hidden" asp-for="QuizId" />
-    <button type="submit" class="btn btn-danger">Delete</button>
-    <a class="btn btn-outline-secondary" asp-action="Index">Cancel</a>
-</form>
+    // Prepare Vue initial state
+    var quizJson = JsonSerializer.Serialize(new {
+        quizId = Model.QuizId,
+        title = Model.Title ?? ""
+    });
+}
+
+<div id="quiz-delete-app">
+    <h2>Delete Quiz</h2>
+
+    <p>Are you sure you want to delete <strong>{{ title }}</strong>?</p>
+
+    <button class="btn btn-danger" @@click="deleteQuiz">Delete</button>
+    <a class="btn btn-secondary" href="/Quiz">Cancel</a>
+</div>
 
 @section Scripts {
-    <partial name="_ValidationScriptsPartial" />
+<script type="module">
+    import QuizService from "/js/QuizService.js";
+    const { createApp } = Vue;
 
-    <script>
-        // Simple client-side error handler for this page
+    createApp({
+        data() {
+            return {
+                id: @Model.QuizId,
+                title: "@Model.Title"
+            };
+        },
+        methods: {
+            async deleteQuiz() {
+                await QuizService.delete(this.id);
+                window.location.href = "/Quiz";
+            }
+        }
+    }).mount("#quiz-delete-app");
+
+    // client sider error handling
         window.addEventListener("error", function (event) {
             console.error("Client error on Delete Quiz page:", event.error || event.message);
             alert("Something went wrong on this page. Please try again.");
         });
-    </script>
+</script>
 }
-

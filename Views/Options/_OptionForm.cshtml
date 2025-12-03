@@ -1,23 +1,65 @@
 @model Option
-<input type="hidden" asp-for="QuestionId" />
-<div class="mb-3">
-    <label asp-for="Text" class="form-label"></label>
-    <input asp-for="Text" class="form-control" />
-    <span asp-validation-for="Text" class="text-danger"></span>
-</div>
-<div class="form-check mb-3">
-    <input asp-for="IsCorrect" class="form-check-input" />
-    <label asp-for="IsCorrect" class="form-check-label"></label>
+@using System.Text.Json
+
+@{
+    // Prepare Vue initial state
+    var initialState = new {
+        questionId = Model.QuestionId,
+        text = Model.Text ?? "",
+        isCorrect = Model.IsCorrect
+    };
+
+    var initialJson = JsonSerializer.Serialize(initialState);
+}
+
+<div id="option-form-app">
+
+    <!-- Hidden Question ID -->
+    <input type="hidden" asp-for="QuestionId" v-model="option.questionId" />
+
+    <!-- Option Text -->
+    <div class="mb-3">
+        <label asp-for="Text" class="form-label"></label>
+        <input asp-for="Text"
+               class="form-control"
+               v-model="option.text" />
+        <span asp-validation-for="Text" class="text-danger"></span>
+    </div>
+
+    <!-- IsCorrect Checkbox -->
+    <div class="form-check mb-3">
+        <input asp-for="IsCorrect"
+               type="checkbox"
+               class="form-check-input"
+               v-model="option.isCorrect" />
+
+        <label asp-for="IsCorrect" class="form-check-label"></label>
+    </div>
+
 </div>
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
 
     <script>
-        // Client-side error handler for this page
+        const initial = @Html.Raw(initialJson);
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    option: {
+                        questionId: initial.questionId,
+                        text: initial.text,
+                        isCorrect: initial.isCorrect
+                    }
+                };
+            }
+        }).mount("#option-form-app");
+
+        // client-side error handler
         window.addEventListener("error", function (event) {
-            console.error("Client error on Create Option page:", event.error || event.message);
-            alert("Something went wrong on this page. Please try again.");
+            console.error("Client error on Option Form page:", event.error || event.message);
         });
     </script>
 }

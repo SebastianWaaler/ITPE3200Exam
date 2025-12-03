@@ -1,70 +1,77 @@
-@model IEnumerable<Quiz>    
-@* The view receives a collection of Quiz objects *@
-
 @{
-    ViewData["Title"] = "Quizzes";   @* Sets the page title for layout and browser tab *@
-    var isAdmin = User.IsInRole("Admin");   @* Used to pass admin flag into Vue *@
+    ViewData["Title"] = "Quizzes";
+
+    // Server only tells Vue if user is admin
+    var isAdmin = User.IsInRole("Admin");
 }
 
-@* Header with title and "New Quiz" button aligned side-by-side *@
+<h2 class="mb-3">Quizzes</h2>
+
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h2>Quizzes (Vue)</h2>
-    
-    @* Button to navigate to the Create Quiz page *@
+
+    @* Only admin can create quiz *@
     @if (isAdmin)
     {
-        <a class="btn btn-primary" asp-action="Create">New Quiz</a>
+        <a class="btn btn-primary" href="/Quiz/Create">New Quiz</a>
     }
 </div>
 
-@* Vue root: this whole block is controlled by Vue *@
+<!-- Vue root -->
 <div id="quiz-index-app">
+
+    <!-- Loading -->
     <p v-if="loading">Loading quizzes...</p>
+
+    <!-- Error -->
     <p v-if="error" class="text-danger">{{ error }}</p>
 
-    @* Table to display the list of quizzes *@
+    <!-- Quiz table -->
     <table v-if="!loading && quizzes.length" class="table table-striped">
         <thead>
             <tr>
-                <th>Title</th>          @* Column for quiz title *@
-                <th>Description</th>    @* Column for quiz description *@
-                <th style="width:240px;"></th>  @* Column for action buttons (Edit/Delete/etc.) *@
+                <th>Title</th>
+                <th>Description</th>
+                <th></th>
             </tr>
         </thead>
+
         <tbody>
-        <tr v-for="q in quizzes" :key="q.QuizId">
-            <td>{{ q.Title }}</td>           @* Display quiz title *@
-            <td>{{ q.Description }}</td>     @* Display quiz description *@
-            <td class="text-end action-buttons">  @* RIGHT ALIGN + allow CSS spacing *@
-                
-                @* Admin-only buttons: details, edit, delete *@
-                <template v-if="isAdmin">
-                    @* Button to view quiz details *@
-                    <a class="btn btn-sm btn-secondary" 
-                       :href="'/Quiz/Details/' + q.QuizId">
-                        Details
-                    </a>
+            <tr v-for="q in quizzes" :key="q.quizId">
 
-                    @* Button to edit the quiz *@
-                    <a class="btn btn-sm btn-warning" 
-                       :href="'/Quiz/Edit/' + q.QuizId">
-                        Edit
-                    </a>
+                <td>{{ q.title }}</td>
+                <td>{{ q.description }}</td>
 
-                    @* Button to delete the quiz *@
-                    <a class="btn btn-sm btn-danger" 
-                       :href="'/Quiz/Delete/' + q.QuizId">
-                        Delete
-                    </a>
-                </template>
+                <td class="text-end">
+                    @* Admin-only buttons *@
+                    <template v-if="isAdmin">
+                        <a 
+                            class="btn btn-sm btn-primary me-2"
+                            :href="'/Quiz/Details/' + q.quizId">
+                            Details
+                        </a>
 
-                @* Button to take the quiz as a participant (visible to everyone) *@
-                <a class="btn btn-sm btn-primary" 
-                   :href="'/Quiz/Take/' + q.QuizId">
-                    Take Quiz
-                </a>
-            </td>
-        </tr>
+                        <a 
+                            class="btn btn-sm btn-warning me-2"
+                            :href="'/Quiz/Edit/' + q.quizId">
+                            Edit
+                        </a>
+
+                        <a 
+                            class="btn btn-sm btn-danger me-2"
+                            :href="'/Quiz/Delete/' + q.quizId">
+                            Delete
+                        </a>
+                    </template>
+
+                    @* Everyone logged in or not sees Take *@
+                    <a 
+                        class="btn btn-sm btn-success"
+                        :href="'/Quiz/Take/' + q.quizId">
+                        Take Quiz
+                    </a>
+                </td>
+
+            </tr>
         </tbody>
     </table>
 
@@ -72,7 +79,6 @@
 </div>
 
 @section Scripts {
-    <partial name="_ValidationScriptsPartial" />
 
     <script>
         const { createApp } = Vue;
@@ -83,20 +89,20 @@
                     quizzes: [],
                     loading: true,
                     error: null,
-                    // Razor emits true/false, ToLower() makes it valid JS literal
                     isAdmin: @isAdmin.ToString().ToLower()
                 };
             },
+
             async mounted() {
                 try {
                     const response = await fetch('/api/QuizApi');
-                    if (!response.ok) {
-                        throw new Error('Failed to load quizzes');
-                    }
+                    if (!response.ok) throw new Error('Failed to load quizzes');
+
                     this.quizzes = await response.json();
+
                 } catch (err) {
                     console.error(err);
-                    this.error = 'Could not load quizzes. Please try again.';
+                    this.error = "Failed to load quizzes.";
                 } finally {
                     this.loading = false;
                 }
@@ -105,8 +111,9 @@
 
         // client-side error handler for this page
         window.addEventListener("error", function (event) {
-            console.error("Client error on Quiz page:", event.error || event.message);
+            console.error("Client error on Quiz Index page:", event.error || event.message);
             alert("Something went wrong on this page. Please try again.");
         });
     </script>
+
 }

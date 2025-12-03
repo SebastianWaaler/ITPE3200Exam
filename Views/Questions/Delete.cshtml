@@ -1,81 +1,101 @@
-@model QuizApp.Models.Question      
-@* The view receives a Question model instance *@
+@model QuizApp.Models.Question
+@using System.Text.Json
+@using System.Linq
 
 @{
-    ViewData["Title"] = "Delete Question";   @* Sets the page title *@
+    ViewData["Title"] = "Delete Question";
+
+    var optionsList = Model.Options?.ToList() ?? new List<QuizApp.Models.Option>();
+
+    var initialState = new {
+        id = Model.Id,
+        quizId = Model.QuizId,
+        text = Model.Text ?? "",
+        points = Model.Points,
+        quizTitle = Model.Quiz?.Title ?? "",
+        options = optionsList.Select(o => new {
+            text = o.Text ?? "",
+            isCorrect = o.IsCorrect
+        })
+    };
+
+    var initialJson = JsonSerializer.Serialize(initialState);
 }
 
 <h2>Delete Question</h2>
 
-<p class="text-muted">
-    @* Informational message asking for confirmation *@
-    Are you sure you want to delete this question
-    from <strong>@Model.Quiz?.Title</strong>?
-</p>
+<div id="delete-question-app">
 
-@* Card showing question details before deletion *@
-<div class="card mb-3">
-  <div class="card-body">
-    <dl class="row mb-0">
-      @* Display Question Text *@
-      <dt class="col-sm-3">Text</dt>
-      <dd class="col-sm-9">@Model.Text</dd>
+    <p class="text-muted">
+        Are you sure you want to delete this question from
+        <strong>{{ quizTitle }}</strong>?
+    </p>
 
-      @* Display point value *@
-      <dt class="col-sm-3">Points</dt>
-      <dd class="col-sm-9">@Model.Points</dd>
+    <div class="card mb-3">
+        <div class="card-body">
 
-      @* Display number of answer options *@
-      <dt class="col-sm-3">Options</dt>
-      <dd class="col-sm-9">@Model.Options?.Count</dd>
-    </dl>
+            <dl class="row mb-0">
+                <dt class="col-sm-3">Text</dt>
+                <dd class="col-sm-9">{{ text }}</dd>
 
-    @* Optional: Show each option text + highlight the correct one *@
-    @if (Model.Options != null && Model.Options.Any())
-    {
-        <ul class="mt-2">
-        @foreach (var opt in Model.Options)
-        {
-            <li style="@(opt.IsCorrect ? "font-weight:bold;color:green" : "")">
-                @opt.Text @(opt.IsCorrect ? "(correct)" : "")
-            </li>
-        }
-        </ul>
-    }
-  </div>
+                <dt class="col-sm-3">Points</dt>
+                <dd class="col-sm-9">{{ points }}</dd>
+
+                <dt class="col-sm-3">Options</dt>
+                <dd class="col-sm-9">{{ options.length }}</dd>
+            </dl>
+
+            <ul class="mt-2" v-if="options.length">
+                <li v-for="(opt, idx) in options"
+                    :key="idx"
+                    :style="opt.isCorrect ? 'font-weight:bold;color:green' : ''">
+
+                    {{ opt.text }} <span v-if="opt.isCorrect">(correct)</span>
+
+                </li>
+            </ul>
+
+        </div>
+    </div>
+
+    <form asp-action="Delete" method="post">
+        @Html.AntiForgeryToken()
+
+        <input type="hidden" asp-for="Id" />
+        <input type="hidden" asp-for="QuizId" />
+
+        <button type="submit" class="btn btn-danger">Delete</button>
+
+        <a asp-controller="Quiz"
+           asp-action="Details"
+           asp-route-id="@Model.QuizId"
+           class="btn btn-outline-secondary">
+            Cancel
+        </a>
+    </form>
+
 </div>
 
-@* Form posts the delete request back to the Delete POST action *@
-<form asp-action="Delete" method="post">
-
-    @Html.AntiForgeryToken()  @* Security token to prevent CSRF attacks *@
-
-    @* Hidden fields keep the question ID and quiz ID so the controller
-       knows what to delete and where to redirect after deletion *@
-    <input type="hidden" asp-for="Id" />
-    <input type="hidden" asp-for="QuizId" />
-
-    @* Primary delete button *@
-    <button type="submit" class="btn btn-danger">Delete</button>
-
-    @* Cancel navigation redirects back to the Quiz details page *@
-    <a asp-controller="Quiz"
-       asp-action="Details"
-       asp-route-id="@Model.QuizId"
-       class="btn btn-outline-secondary">
-        Cancel
-    </a>
-</form>
-
 @section Scripts {
-    <partial name="_ValidationScriptsPartial" />
+    <script>
+        const initial = @Html.Raw(initialJson);
+        const { createApp } = Vue;
 
-     <script>
-        // Simple client-side error handling for this page
-        window.addEventListener("error", function (event) {
-            console.error("Client error on Delete Question page:", event.error || event.message);
-            alert("Something went wrong on this page. Please try again.");
+        createApp({
+            data() {
+                return {
+                    id: initial.id,
+                    quizId: initial.quizId,
+                    text: initial.text,
+                    points: initial.points,
+                    quizTitle: initial.quizTitle,
+                    options: initial.options
+                };
+            }
+        }).mount("#delete-question-app");
+
+        window.addEventListener("error", e => {
+            console.error("Client error on Delete Question page:", e.error || e.message);
         });
     </script>
 }
-

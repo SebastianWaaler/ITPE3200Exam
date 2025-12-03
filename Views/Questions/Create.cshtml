@@ -1,113 +1,145 @@
 @model QuizApp.Models.Question
-@* The view receives a Question model *@
+@using System.Text.Json
+@using System.Linq
 
-<h2>Create Question — @ViewBag.Quiz.Title</h2> @* Display quiz title from ViewBag *@
+@{
+    ViewData["Title"] = "Create Question";
 
-<form asp-action="Create" method="post" novalidate>  @* Form posts to Question/Create *@
+    // start with at least 2 empty options
+    var optionsList = Model.Options?.ToList() ?? new List<QuizApp.Models.Option>();
 
-    @* Hidden field to keep track of which quiz this question belongs to *@
-    <input asp-for="QuizId" type="hidden" />
+    if (!optionsList.Any())
+    {
+        optionsList.Add(new QuizApp.Models.Option { Text = "", IsCorrect = false });
+        optionsList.Add(new QuizApp.Models.Option { Text = "", IsCorrect = false });
+    }
 
-    @* Question Text Field *@
-    <div class="mb-3">
-        <label asp-for="Text" class="form-label"></label>   @* Auto generates label for Text *@
-        <input asp-for="Text" class="form-control" />        @* Input for question text *@
-        <span asp-validation-for="Text" class="text-danger"></span> @* Validation errors *@
-    </div>
+    var initialState = new {
+        quizId = Model.QuizId,
+        text = Model.Text ?? "",
+        points = Model.Points,
+        options = optionsList.Select(o => new {
+            text = o.Text ?? "",
+            isCorrect = o.IsCorrect
+        }),
+        correctIndex = optionsList.FindIndex(o => o.IsCorrect)
+    };
 
-    @* Question Point Value *@
-    <div class="mb-3">
-        <label asp-for="Points" class="form-label"></label>
-        <input asp-for="Points" type="number" class="form-control" /> @* Numeric input *@
-        <span asp-validation-for="Points" class="text-danger"></span>
-    </div>
+    var initialJson = JsonSerializer.Serialize(initialState);
+}
 
-    <hr />
-    <h4>Answer Options</h4>
+<h2>Create Question — @ViewBag.Quiz.Title</h2>
 
-    @* Container for dynamic answer options *@
-    <div id="options">
-        @for (int i = 0; i < Model.Options.Count; i++)
-        {
-            @* Each option row includes: text input, radio button for correct option, remove button *@
-            <div class="d-flex align-items-center mb-2 option-row">
-                
-                @* Textbox for option text, bound using index-based naming *@
-                <input name="Options[@i].Text"
-                       value="@Model.Options[i].Text"
-                       class="form-control me-2" />
+<div id="question-create-app">
 
-                @* Radio selects which option is the correct one *@
+    <form asp-action="Create" method="post" novalidate>
+        <input type="hidden" asp-for="QuizId" />
+
+        <!-- TEXT -->
+        <div class="mb-3">
+            <label asp-for="Text" class="form-label"></label>
+            <input asp-for="Text" class="form-control" v-model="text" />
+            <span asp-validation-for="Text" class="text-danger"></span>
+        </div>
+
+        <!-- POINTS -->
+        <div class="mb-3">
+            <label asp-for="Points" class="form-label"></label>
+            <input asp-for="Points" type="number" class="form-control" v-model.number="points" />
+            <span asp-validation-for="Points" class="text-danger"></span>
+        </div>
+
+        <hr />
+        <h4>Answer Options</h4>
+
+        <!-- OPTIONS -->
+        <div class="option-row mb-2"
+             v-for="(opt, idx) in options"
+             :key="idx">
+
+            <div class="d-flex align-items-center">
+
+                <!-- bind name for POST -->
+                <input class="form-control me-2"
+                       :name="'Options[' + idx + '].Text'"
+                       v-model="opt.text"
+                       placeholder="Option text" />
+
+                <!-- correct option -->
                 <input type="radio"
                        name="CorrectIndex"
-                       value="@i"
-                       @(Model.Options[i].IsCorrect ? "checked" : "") />
+                       :value="idx"
+                       v-model.number="correctIndex" />
 
-                @* Remove option button *@
-                <button type="button" class="btn btn-danger btn-sm ms-2 removeOption">X</button>
+                <!-- REMOVE -->
+                <button type="button"
+                        class="btn btn-danger btn-sm ms-2"
+                        @@click="removeOption(idx)">
+                    X
+                </button>
             </div>
-        }
-    </div>
+        </div>
 
-    @* Button to add a new option dynamically *@
-    <button type="button" id="addOption" class="btn btn-secondary mt-2">Add Option</button>
+        <!-- ADD OPTION -->
+        <button type="button"
+                class="btn btn-secondary mt-2"
+                @@click="addOption">
+            Add Option
+        </button>
 
-    <br /><br />
+        <br /><br />
 
-    @* Submit button and cancel navigation *@
-    <button type="submit" class="btn btn-primary">Save</button>
+        <!-- SUBMIT -->
+        <button type="submit" class="btn btn-primary">Save</button>
 
-    <a asp-controller="Quiz" asp-action="Details" asp-route-id="@Model.QuizId" class="btn btn-outline-secondary">Cancel</a>
-
-</form>
+        <a asp-controller="Quiz"
+           asp-action="Details"
+           asp-route-id="@Model.QuizId"
+           class="btn btn-outline-secondary">
+            Cancel
+        </a>
+    </form>
+</div>
 
 @section Scripts {
 
-    <partial name="_ValidationScriptsPartial" />
-
     <script>
-        try {
-            // Add new answer option dynamically when the button is clicked
-            document.getElementById("addOption").onclick = function () {
-                try {
-                    const container = document.getElementById("options");
-                    const index = container.children.length;
+        const initial = @Html.Raw(initialJson);
+        const { createApp } = Vue;
 
-                    const row = document.createElement("div");
-                    row.classList.add("d-flex", "align-items-center", "mb-2", "option-row");
+        createApp({
+            data() {
+                return {
+                    quizId: initial.quizId,
+                    text: initial.text,
+                    points: initial.points,
+                    options: initial.options.map(o => ({
+                        text: o.text,
+                        isCorrect: o.isCorrect
+                    })),
+                    correctIndex: initial.correctIndex ?? -1
+                };
+            },
 
-                    row.innerHTML = `
-                        <input name="Options[${index}].Text"
-                               class="form-control me-2"
-                               placeholder="Option text" />
+            methods: {
+                addOption() {
+                    this.options.push({ text: "", isCorrect: false });
+                },
 
-                        <input type="radio" name="CorrectIndex" value="${index}" />
+                removeOption(index) {
+                    this.options.splice(index, 1);
 
-                        <button type="button" class="btn btn-danger btn-sm ms-2 removeOption">X</button>
-                    `;
-
-                    container.appendChild(row);
-                } catch (err) {
-                    console.error("Error adding option row:", err);
-                    alert("Something went wrong while adding an option. Please try again.");
-                }
-            };
-
-            // Event delegation: Handles clicking the Remove button for any option
-            document.addEventListener("click", function (e) {
-                try {
-                    if (e.target.classList.contains("removeOption")) {
-                        e.target.parentElement.remove();
+                    if (this.correctIndex === index) {
+                        this.correctIndex = -1;
+                    } else if (this.correctIndex > index) {
+                        this.correctIndex--;
                     }
-                } catch (err) {
-                    console.error("Error removing option row:", err);
-                    alert("Something went wrong while removing an option.");
                 }
-            });
+            }
+        }).mount("#question-create-app");
 
-        } catch (err) {
-            console.error("Client error in Create Question script:", err);
-            alert("Something went wrong on this page. Please refresh and try again.");
-        }
+        window.addEventListener("error", event => {
+            console.error("Client error on Create Question page:", event.error || event.message);
+        });
     </script>
 }

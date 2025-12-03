@@ -1,58 +1,70 @@
 @model Quiz
+@using System.Text.Json
+
 @{
     ViewData["Title"] = "Create Quiz";
+
+    // Prepare Vue initial state safely as JSON    
+    var state = new {
+        title = Model?.Title ?? "",
+        description = Model?.Description ?? ""
+    };
+
+    var json = JsonSerializer.Serialize(state);
 }
 
 <h2 class="mb-4">Create Quiz</h2>
 
 <div id="quiz-create-app">
-    <form asp-action="Create" method="post" class="card p-4 shadow-sm">
 
-        <div class="mb-3">
-            <label asp-for="Title" class="form-label"></label>
-            <input asp-for="Title"
-                   class="form-control"
-                   v-model="title" />
-            <span asp-validation-for="Title" class="text-danger"></span>
-        </div>
+    <div class="mb-3">
+        <label>Title</label>
+        <input class="form-control" v-model="title" />
+    </div>
 
-        <div class="mb-3">
-            <label asp-for="Description" class="form-label"></label>
-            <textarea asp-for="Description"
-                      class="form-control"
-                      rows="3"
-                      v-model="description"></textarea>
-            <span asp-validation-for="Description" class="text-danger"></span>
-        </div>
+    <div class="mb-3">
+        <label>Description</label>
+        <textarea class="form-control" v-model="description"></textarea>
+    </div>
 
-        <div class="d-flex gap-2">
-            <button class="btn btn-primary">Save</button>
-            <a asp-action="Index" class="btn btn-secondary">Cancel</a>
-        </div>
-
-    </form>
+    <button class="btn btn-primary" @@click="saveQuiz">Save</button>
+    <a class="btn btn-secondary" href="/Quiz">Cancel</a>
 </div>
 
 @section Scripts {
-    <partial name="_ValidationScriptsPartial" />
+<script type="module">
+    import QuizService from "/js/QuizService.js";
+    const { createApp } = Vue;
 
-    <script>
-        const { createApp } = Vue;
+    createApp({
+        data() {
+            return {
+                title: "",
+                description: ""
+            };
+        },
+        methods: {
+            async saveQuiz() {
 
-        createApp({
-            data() {
-                return {
-                    // Initialize from server model (for redisplay after validation error)
-                    title: '@(Model?.Title ?? "")',
-                    description: '@(Model?.Description ?? "")'
+                // Build quiz object for API
+                const q = {
+                    title: this.title,
+                    description: this.description
                 };
-            }
-        }).mount('#quiz-create-app');
 
-        // client-side error handler for this page
-        window.addEventListener("error", function (event) {
-            console.error("Client error on Create Quiz page:", event.error || event.message);
-            alert("Something went wrong on this page. Please try again.");
-        });
-    </script>
+                // Call API to create quiz
+                const created = await QuizService.create(q);
+
+                // FIX → Use quizId (API returns quizId, not id)
+                window.location.href = `/Quiz/Details/${created.quizId}`;
+            }
+        }
+    }).mount("#quiz-create-app");
+
+    // Client-side error handler
+    window.addEventListener("error", function (event) {
+        console.error("Client error on Create Quiz page:", event.error || event.message);
+        alert("Something went wrong on this page. Please try again.");
+    });
+</script>
 }
