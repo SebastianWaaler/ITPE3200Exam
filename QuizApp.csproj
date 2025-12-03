@@ -11,6 +11,7 @@
     <PackageReference Include="Microsoft.AspNetCore.Identity.UI" Version="8.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.0">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
@@ -20,6 +21,22 @@
   <ItemGroup>
     <Compile Remove="QuizApp.Tests\**\*.cs" />
     <None Remove="QuizApp.Tests\**\*" />
+    <Content Remove="QuizApp\**\*" />
+    <None Remove="QuizApp\**\*" />
   </ItemGroup>
+  
+  <ItemGroup>
+    <Folder Include="QuizApp\" />
+  </ItemGroup>
+  
+  <PropertyGroup>
+    <EnableDefaultContentItems>true</EnableDefaultContentItems>
+  </PropertyGroup>
+  
+  <Target Name="ExcludeQuizAppFolderFromOutput" BeforeTargets="GetCopyToOutputDirectoryItems">
+    <ItemGroup>
+      <ContentWithTargetPath Remove="@(ContentWithTargetPath)" Condition="$([System.String]::Copy('%(FullPath)').Contains('$(MSBuildProjectDirectory)\QuizApp\'))" />
+    </ItemGroup>
+  </Target>
 
 </Project>

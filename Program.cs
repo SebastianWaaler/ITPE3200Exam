@@ -23,7 +23,7 @@ builder.Services.AddDbContext<QuizContext>(options =>
 // Uses ApplicationUser as the user type and supports roles (Admin, Player)
 builder.Services.AddDefaultIdentity<ApplicationUser>(options =>
     {
-        options.SignIn.RequireConfirmedAccount = false; 
+        options.SignIn.RequireConfirmedAccount = false;
     })
     .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<QuizContext>();
@@ -31,6 +31,19 @@ builder.Services.AddDefaultIdentity<ApplicationUser>(options =>
 // Register MVC controllers and Razor Pages
 builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages();
+
+// SPA: allow our Vue dev server (Vite) to call the API
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("SpaCors", policy =>
+    {
+        policy
+            .WithOrigins("http://localhost:5173") // SPA dev server origin
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();
+    });
+});
 
 // Register repository implementations for dependency injection
 // Uses scoped lifetime so each HTTP request gets its own repository instance
@@ -63,7 +76,7 @@ using (var scope = app.Services.CreateScope())
     // Create default admin user for testing/managing the application
     // Email: admin@example.com, Password: Admin123!
     string adminEmail = "admin@example.com";
-    string adminPassword = "Admin123!"; 
+    string adminPassword = "Admin123!";
 
     var adminUser = await userManager.FindByNameAsync(adminEmail);
     if (adminUser == null)
@@ -101,18 +114,19 @@ app.UseStaticFiles();
 
 app.UseRouting();
 
+// SPA: enable CORS (must be between UseRouting and UseAuthorization ideally)
+app.UseCors("SpaCors");
+
 // Authentication must come before authorization
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Map API routes first (before catch-all)
-app.MapControllers();
+// Map MVC routes - default route goes to Quiz/Index
+app.MapControllerRoute(
+    name: "default",
+    pattern: "{controller=Quiz}/{action=Index}/{id?}");
 
 // Map Razor Pages (used for Identity pages like Login, Register)
 app.MapRazorPages();
-
-// Catch-all route for SPA - redirects all non-API routes to the SPA shell
-// This allows Vue Router to handle client-side routing
-app.MapFallbackToController("Index", "Home");
 
 app.Run();

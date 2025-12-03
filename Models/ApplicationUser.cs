@@ -4,6 +4,6 @@ namespace QuizApp.Models
 {
     public class ApplicationUser : IdentityUser
     {
-        // Can add custom properties here if needed
+        
     }
 }
