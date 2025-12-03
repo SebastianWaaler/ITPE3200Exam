@@ -1,32 +1,48 @@
+@* 
+    Quiz-taking page for users. Displays quiz questions with multiple choice answer options.
+    Users select one answer per question using radio buttons.
+    After submitting, answers are sent to server for scoring.
+    Note: The isCorrect flag is loaded from API but hidden from users in the UI.
+*@
 @model QuizApp.Models.Quiz     
 
+@* Vue.js root element for quiz-taking interface *@
 <div id="take-quiz-app">
 
+    @* Quiz header - title and description *@
     <div class="mb-4" v-if="quiz">
         <h1 class="mb-1">{{ quiz.title }}</h1>
         <p class="text-muted">{{ quiz.description }}</p>
     </div>
 
+    @* Loading message while fetching quiz data from API *@
     <p v-if="loading">Loading quiz...</p>
+    @* Error message if quiz fails to load *@
     <p v-if="error" class="text-danger">{{ error }}</p>
 
+    @* Quiz form - only shown when quiz is loaded and has questions *@
     <form v-if="!loading && quiz && quiz.questions && quiz.questions.length"
           method="post"
           asp-action="Submit"
           class="card shadow-sm p-4">
 
+        @* Hidden field to send quiz ID to server when form is submitted *@
         <input type="hidden" name="QuizId" :value="quiz.quizId" />
 
+        @* Loop through each question in the quiz *@
         <div v-for="question in quiz.questions"
              :key="question.id"
              class="mb-4 p-3 border rounded bg-light">
 
+            @* Display question text *@
             <strong class="d-block mb-2">{{ question.text }}</strong>
 
+            @* Loop through answer options for this question *@
             <div class="form-check mb-1"
                  v-for="option in question.options"
                  :key="option.id">
 
+                @* Radio button for each option - user selects one per question *@
                 <label class="form-check-label">
                     <input type="radio"
                            class="form-check-input"
@@ -40,11 +56,13 @@
 
         <hr />
 
+        @* Submit button - sends selected answers to server for scoring *@
         <button type="submit" class="btn btn-primary mt-3">
             Submit Quiz
         </button>
     </form>
 
+    @* Message when quiz exists but has no questions *@
     <p v-if="!loading && quiz && (!quiz.questions || quiz.questions.length === 0)">
         This quiz has no questions yet.
     </p>
@@ -65,10 +83,12 @@
                 };
             },
 
+            @* Loads quiz data from API when page loads *@
             async mounted() {
                 try {
                     const response = await fetch(`/api/QuizApi/${this.quizId}`);
 
+                    @* Handle different error scenarios *@
                     if (!response.ok) {
                         if (response.status === 401 || response.status === 403) {
                             this.error = "You must be logged in to take this quiz.";
@@ -80,6 +100,7 @@
                         return;
                     }
 
+                    @* Store quiz data (questions and options) for display *@
                     this.quiz = await response.json();
 
                 } catch (err) {

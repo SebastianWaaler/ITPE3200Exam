@@ -1,9 +1,16 @@
+@* 
+    Admin page for creating a new quiz.
+    Allows entering quiz title (required, max 200 chars) and description (optional).
+    Uses Vue.js for client-side validation and API calls.
+    After creation, redirects to quiz details page where questions can be added.
+*@
 @model Quiz
 @using System.Text.Json
 
 @{
     ViewData["Title"] = "Create Quiz";
     
+    @* Prepare initial state for Vue.js from server model (if validation fails and page reloads) *@
     var state = new {
         title = Model?.Title ?? "",
         description = Model?.Description ?? ""
@@ -14,15 +21,17 @@
 
 <h2 class="mb-4">Create Quiz</h2>
 
+@* Vue.js root element for quiz creation form *@
 <div id="quiz-create-app">
 
-    <!-- Validation error messages -->
+    @* Display validation errors from client-side validation *@
     <div v-if="errors.length > 0" class="alert alert-danger">
         <ul class="mb-0">
             <li v-for="error in errors" :key="error">{{ error }}</li>
         </ul>
     </div>
 
+    @* Quiz title input - required field, max 200 characters *@
     <div class="mb-3">
         <label for="title">Title <span class="text-danger">*</span></label>
         <input 
@@ -37,6 +46,7 @@
         </div>
     </div>
 
+    @* Quiz description textarea - optional field *@
     <div class="mb-3">
         <label for="description">Description</label>
         <textarea 
@@ -46,6 +56,7 @@
             rows="4"></textarea>
     </div>
 
+    @* Save button - disabled while saving, shows spinner during API call *@
     <button class="btn btn-primary" @@click="saveQuiz" :disabled="saving">
         <span v-if="saving" class="spinner-border spinner-border-sm me-2" role="status"></span>
         {{ saving ? 'Saving...' : 'Save' }}
@@ -56,22 +67,26 @@
 @section Scripts {
 <script type="module">
 
+    @* Import quiz service for API calls *@
     import QuizService from "/js/QuizService.js";
     const { createApp } = Vue;
 
+    @* Vue.js application for quiz creation form *@
     createApp({
         data() {
             return {
-                title: "",
-                description: "",
-                errors: [],
-                saving: false
+                title: "",           // Quiz title from input
+                description: "",     // Quiz description from textarea
+                errors: [],          // Array of validation error messages
+                saving: false        // Flag to prevent double-submission
             };
         },
         methods: {
+            @* Validates form data before submission *@
             validate() {
                 this.errors = [];
                 
+                @* Title is required and must be 200 characters or less *@
                 if (!this.title || this.title.trim() === "") {
                     this.errors.push("Title is required");
                 } else if (this.title.length > 200) {
@@ -81,9 +96,11 @@
                 return this.errors.length === 0;
             },
             
+            @* Saves quiz via API and redirects to quiz details page *@
             async saveQuiz() {
                 this.errors = [];
                 
+                @* Don't submit if validation fails *@
                 if (!this.validate()) {
                     return;
                 }
@@ -91,12 +108,15 @@
                 this.saving = true;
                 
                 try {
+                    @* Prepare quiz data object *@
                     const q = {
                         title: this.title.trim(),
                         description: this.description.trim()
                     };
 
+                    @* Call API to create quiz *@
                     const created = await QuizService.create(q);
+                    @* Redirect to quiz details page where questions can be added *@
                     window.location.href = `/Quiz/Details/${created.quizId}`;
                 } catch (err) {
                     console.error("Error creating quiz:", err);

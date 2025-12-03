@@ -1,9 +1,16 @@
+@* 
+    Quiz results page displayed after user submits a quiz.
+    Shows score (earned points / total points), percentage, and a visual progress bar.
+    Displays encouraging messages based on performance (Perfect Score, Great Job, etc.).
+    Progress bar color changes based on score: green (70%+), yellow (50-69%), red (<50%).
+*@
 @model QuizApp.Models.QuizResultViewModel
 @using System.Text.Json
 
 @{
     ViewData["Title"] = "Quiz Result";
 
+    @* Convert server model to JSON for Vue.js *@
     var resultJson = JsonSerializer.Serialize(new {
         title = Model.QuizTitle ?? "",
         earned = Model.EarnedPoints,
@@ -11,19 +18,24 @@
     });
 }
 
+@* Vue.js root element for quiz results display *@
 <div id="quiz-result-app" class="mt-4">
     <div class="card shadow-sm p-5 text-center">
         <h1 class="mb-4">Quiz Result</h1>
 
+        @* Quiz title *@
         <h2 class="mb-4 text-primary">{{ result.title }}</h2>
 
         <div class="mb-4">
+            @* Display score as "earned / total points" *@
             <div class="display-4 mb-2">
                 <strong>{{ result.earned }}</strong> / <strong>{{ result.total }}</strong>
             </div>
             <p class="text-muted">points</p>
             
+            @* Progress bar and percentage - only shown if quiz has questions *@
             <div v-if="result.total > 0" class="mt-3">
+                @* Visual progress bar - color changes based on percentage *@
                 <div class="progress" style="height: 30px;">
                     <div 
                         class="progress-bar" 
@@ -33,6 +45,7 @@
                         {{ percentage.toFixed(0) }}%
                     </div>
                 </div>
+                @* Encouraging message based on score percentage *@
                 <p class="mt-2" v-if="percentage === 100">
                     <span class="badge bg-success">Perfect Score!</span>
                 </p>
@@ -66,6 +79,7 @@
                 };
             },
             computed: {
+                @* Calculates percentage score (earned / total * 100) *@
                 percentage() {
                     if (this.result.total === 0) return 0;
                     return (this.result.earned / this.result.total) * 100;

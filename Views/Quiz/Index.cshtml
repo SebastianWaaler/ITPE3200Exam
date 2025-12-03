@@ -1,3 +1,11 @@
+@* 
+    Main quiz list page. Displays all available quizzes in a table.
+    Features:
+    - Search/filter functionality to find quizzes by title or description
+    - Admin users see "New Quiz" button and management buttons (Details, Edit, Delete)
+    - All users (logged in or not) can see and click "Take Quiz" buttons
+    - Uses Vue.js for dynamic content filtering and conditional rendering
+*@
 @{
     ViewData["Title"] = "Quizzes";
 
@@ -15,10 +23,10 @@
     }
 </div>
 
-<!-- Vue root -->
+    @* Vue.js root element - manages dynamic quiz list and search functionality *@
 <div id="quiz-index-app">
 
-    <!-- Search/Filter Section -->
+    @* Search input field - filters quizzes in real-time as user types *@
     <div class="mb-3" v-if="!loading">
         <div class="row">
             <div class="col-md-6">
@@ -30,6 +38,7 @@
                     @@input="filterQuizzes" />
             </div>
             <div class="col-md-6">
+                @* Shows count of filtered results vs total quizzes *@
                 <p class="text-muted mb-0" v-if="filteredQuizzes.length !== quizzes.length">
                     Showing {{ filteredQuizzes.length }} of {{ quizzes.length }} quizzes
                 </p>
@@ -37,7 +46,7 @@
         </div>
     </div>
 
-    <!-- Loading -->
+    @* Loading spinner displayed while fetching quiz data from API *@
     <div v-if="loading" class="text-center py-5">
         <div class="spinner-border text-primary" role="status">
             <span class="visually-hidden">Loading...</span>
@@ -45,12 +54,12 @@
         <p class="mt-2">Loading quizzes...</p>
     </div>
 
-    <!-- Error -->
+    @* Error message displayed if API call fails *@
     <div v-if="error" class="alert alert-danger" role="alert">
         <strong>Error:</strong> {{ error }}
     </div>
 
-    <!-- Quiz table -->
+    @* Main quiz table - displays filtered quiz results *@
     <table v-if="!loading && filteredQuizzes.length" class="table table-striped table-hover">
         <thead>
             <tr>
@@ -61,26 +70,30 @@
         </thead>
 
         <tbody>
+            @* Loop through each quiz in filtered results *@
             <tr v-for="q in filteredQuizzes" :key="q.quizId">
 
                 <td>{{ q.title }}</td>
                 <td>{{ q.description }}</td>
 
                 <td class="text-end">
-                    @* Admin-only buttons *@
+                    @* Admin-only management buttons - only visible to users with Admin role *@
                     <template v-if="isAdmin">
+                        @* View quiz details, questions, and options *@
                         <a 
                             class="btn btn-sm btn-primary me-2"
                             :href="'/Quiz/Details/' + q.quizId">
                             Details
                         </a>
 
+                        @* Edit quiz title and description *@
                         <a 
                             class="btn btn-sm btn-warning me-2"
                             :href="'/Quiz/Edit/' + q.quizId">
                             Edit
                         </a>
 
+                        @* Delete quiz (with confirmation) *@
                         <a 
                             class="btn btn-sm btn-danger me-2"
                             :href="'/Quiz/Delete/' + q.quizId">
@@ -88,7 +101,7 @@
                         </a>
                     </template>
 
-                    @* Everyone logged in or not sees Take *@
+                    @* Take Quiz button - visible to everyone (logged in or anonymous) *@
                     <a 
                         class="btn btn-sm btn-success"
                         :href="'/Quiz/Take/' + q.quizId">
@@ -100,9 +113,11 @@
         </tbody>
     </table>
 
+    @* Message when search returns no results but quizzes exist *@
     <div v-if="!loading && !filteredQuizzes.length && quizzes.length > 0" class="alert alert-info">
         No quizzes match your search criteria.
     </div>
+    @* Message when no quizzes exist in database *@
     <div v-if="!loading && !quizzes.length" class="alert alert-info">
         No quizzes found. @if (isAdmin) { <a href="/Quiz/Create">Create the first quiz</a> }
     </div>
@@ -111,27 +126,29 @@
 @section Scripts {
 
     <script>
+        @* Vue.js application for quiz list page *@
         const { createApp } = Vue;
 
         createApp({
             data() {
                 return {
-                    quizzes: [],
-                    filteredQuizzes: [],
-                    searchQuery: "",
-                    loading: true,
-                    error: null,
-                    isAdmin: @isAdmin.ToString().ToLower()
+                    quizzes: [],              // All quizzes loaded from API
+                    filteredQuizzes: [],     // Quizzes matching search query
+                    searchQuery: "",         // User's search input
+                    loading: true,           // Loading state while fetching data
+                    error: null,             // Error message if API call fails
+                    isAdmin: @isAdmin.ToString().ToLower()  // Whether current user is admin
                 };
             },
 
+            @* Called when page loads - fetches all quizzes from API *@
             async mounted() {
                 try {
                     const response = await fetch('/api/QuizApi');
                     if (!response.ok) throw new Error('Failed to load quizzes');
 
                     this.quizzes = await response.json();
-                    this.filteredQuizzes = this.quizzes;
+                    this.filteredQuizzes = this.quizzes;  // Initially show all quizzes
 
                 } catch (err) {
                     console.error(err);
@@ -142,14 +159,17 @@
             },
 
             methods: {
+                @* Filters quizzes based on search query - matches title or description *@
                 filterQuizzes() {
                     const query = this.searchQuery.toLowerCase().trim();
                     
+                    // If no search query, show all quizzes
                     if (!query) {
                         this.filteredQuizzes = this.quizzes;
                         return;
                     }
 
+                    // Filter quizzes where title or description contains search query
                     this.filteredQuizzes = this.quizzes.filter(quiz => {
                         const titleMatch = quiz.title?.toLowerCase().includes(query) || false;
                         const descMatch = quiz.description?.toLowerCase().includes(query) || false;

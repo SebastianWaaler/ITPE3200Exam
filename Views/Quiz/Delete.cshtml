@@ -1,20 +1,30 @@
+@* 
+    Admin confirmation page for deleting a quiz.
+    Shows quiz title and asks for confirmation before permanent deletion.
+    Uses Vue.js to call API for deletion, then redirects to quiz list.
+    Warning: This will delete the quiz and all its questions and options.
+*@
 @model Quiz
 @using System.Text.Json
 
 @{
     ViewData["Title"] = "Delete Quiz";
 
+    @* Convert server model to JSON for Vue.js *@
     var quizJson = JsonSerializer.Serialize(new {
         quizId = Model.QuizId,
         title = Model.Title ?? ""
     });
 }
 
+@* Vue.js root element for delete confirmation *@
 <div id="quiz-delete-app">
     <h2>Delete Quiz</h2>
 
+    @* Confirmation message showing which quiz will be deleted *@
     <p>Are you sure you want to delete <strong>{{ title }}</strong>?</p>
 
+    @* Delete button - calls API to delete quiz *@
     <button class="btn btn-danger" @@click="deleteQuiz">Delete</button>
     <a class="btn btn-secondary" href="/Quiz">Cancel</a>
 </div>
@@ -32,6 +42,7 @@
             };
         },
         methods: {
+            @* Deletes quiz via API and redirects to quiz list page *@
             async deleteQuiz() {
                 await QuizService.delete(this.id);
                 window.location.href = "/Quiz";

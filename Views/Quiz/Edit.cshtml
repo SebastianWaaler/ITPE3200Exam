@@ -1,9 +1,16 @@
+@* 
+    Admin page for editing an existing quiz's title and description.
+    Pre-fills form with current quiz data.
+    Uses Vue.js for client-side validation and API calls.
+    After saving, redirects back to quiz list page.
+*@
 @model QuizApp.Models.Quiz
 @using System.Text.Json
 
 @{
     ViewData["Title"] = "Edit Quiz";
 
+    @* Convert server model to JSON for Vue.js initialization *@
     var quizJson = JsonSerializer.Serialize(new {
         quizId = Model.QuizId,
         title = Model.Title ?? "",
@@ -13,6 +20,7 @@
 
 <h2>Edit Quiz</h2>
 
+@* Vue.js root element for quiz edit form *@
 <div id="quiz-edit-app">
 
     <!-- Validation error messages -->
@@ -83,6 +91,7 @@
                 return this.errors.length === 0;
             },
             
+            @* Updates quiz via API and redirects to quiz list page *@
             async updateQuiz() {
                 this.errors = [];
                 
@@ -93,12 +102,14 @@
                 this.saving = true;
                 
                 try {
+                    @* Call API to update quiz *@
                     await QuizService.update({
                         quizId: this.quizId,  
                         title: this.title.trim(),
                         description: this.description.trim()
                     });
 
+                    @* Redirect to quiz list page after successful update *@
                     window.location.href = `/Quiz`;
                 }
                 catch (err) {

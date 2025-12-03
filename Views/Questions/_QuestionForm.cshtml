@@ -1,7 +1,13 @@
+@* 
+    Partial view for question form fields (text and points).
+    Used as a reusable component for question input fields.
+    Bound to Vue.js for two-way data binding.
+*@
 @model Question
 @using System.Text.Json
 
 @{
+    @* Prepare initial state for Vue.js from model *@
     var initialState = new {
         quizId = Model.QuizId,
         text = Model.Text ?? "",
@@ -11,6 +17,7 @@
     var initialJson = JsonSerializer.Serialize(initialState);
 }
 
+@* Vue.js root element for question form fields *@
 <div id="question-form-app">
 
     <input type="hidden" asp-for="QuizId" v-model="quizId" />

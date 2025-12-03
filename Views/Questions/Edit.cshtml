@@ -1,3 +1,9 @@
+@* 
+    Admin page for editing an existing question.
+    Pre-fills form with current question text, points, and all answer options.
+    Allows adding new options, editing existing ones, or deleting options.
+    One option must be marked as correct. Server validates at least 2 options remain.
+*@
 @model QuizApp.Models.Question
 @using System.Text.Json
 @using System.Linq
@@ -5,8 +11,10 @@
 @{
     ViewData["Title"] = "Edit Question";
 
+    @* Get existing options from the question model *@
     var optionsList = Model.Options?.ToList() ?? new List<QuizApp.Models.Option>();
 
+    @* Prepare initial state for Vue.js - includes option IDs for tracking existing vs new options *@
     var initialState = new {
         id = Model.Id,
         quizId = Model.QuizId,
@@ -25,6 +33,7 @@
 
 <h2>Edit Question — @(Model.Quiz?.Title ?? "Quiz")</h2>
 
+@* Vue.js root element for question edit form *@
 <div id="question-edit-app">
 
     <form asp-action="Edit" method="post" novalidate>
@@ -63,29 +72,29 @@
         }
 
 
-        <!-- Vue-controlled options -->
+        @* Dynamic list of answer options - can add, edit, or remove options *@
         <div class="option-row mb-2" 
              v-for="(opt, idx) in options" 
              :key="idx">
 
             <div class="d-flex align-items-center">
 
-                <!-- Hidden Option ID -->
+                @* Hidden field to track option ID - 0 means new option, existing ID means update *@
                 <input type="hidden"
                        :name="'Options[' + idx + '].Id'"
                        :value="opt.id" />
 
-                <!-- Option Text -->
+                @* Option text input - bound to form POST data *@
                 <input class="form-control me-2"
                        :name="'Options[' + idx + '].Text'"
                        v-model="opt.text" />
 
-                <!-- Hidden IsCorrect sync -->
+                @* Hidden field to sync IsCorrect flag with radio button selection *@
                 <input type="hidden"
                        :name="'Options[' + idx + '].IsCorrect'"
                        :value="opt.isCorrect" />
 
-                <!-- Correct answer selector -->
+                @* Radio button to mark this option as correct - only one can be selected *@
                 <label class="form-check-label me-2 ms-2">
                     <input type="radio"
                            name="CorrectIndex"
@@ -95,7 +104,7 @@
                     Correct
                 </label>
 
-                <!-- Remove Option -->
+                @* Remove button - marks option for deletion (or removes if new) *@
                 <button type="button"
                         class="btn btn-danger btn-sm ms-2"
                         @@click="removeOption(idx)">
@@ -104,7 +113,7 @@
             </div>
         </div>
 
-        <!-- Add option -->
+        @* Button to add a new empty option to the list *@
         <button type="button"
                 class="btn btn-secondary mt-2"
                 @@click="addOption">
@@ -149,8 +158,10 @@
                 };
             },
 
+            @* Watches correctIndex and updates IsCorrect flags when selection changes *@
             watch: {
                 correctIndex(newVal) {
+                    @* Set IsCorrect to true only for the selected option, false for all others *@
                     this.options.forEach((o, i) => {
                         o.isCorrect = (i === newVal);
                     });
@@ -158,6 +169,7 @@
             },
 
             methods: {
+                @* Adds a new option with ID 0 (indicates new option to server) *@
                 addOption() {
                     this.options.push({
                         id: 0,
@@ -166,12 +178,16 @@
                     });
                 },
 
+                @* Removes an option and adjusts correctIndex if needed *@
                 removeOption(index) {
                     this.options.splice(index, 1);
 
+                    @* If removed option was correct, clear selection *@
                     if (this.correctIndex === index) {
                         this.correctIndex = -1;
-                    } else if (this.correctIndex > index) {
+                    } 
+                    @* If a later option was correct, decrement its index *@
+                    else if (this.correctIndex > index) {
                         this.correctIndex--;
                     }
                 }

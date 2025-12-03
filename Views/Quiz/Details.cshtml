@@ -1,9 +1,16 @@
+@* 
+    Admin page showing detailed view of a quiz.
+    Displays quiz title, description, and all questions with their answer options.
+    Shows which options are marked as correct (green text with checkmark).
+    Allows admins to add new questions or edit/delete existing ones.
+*@
 @model QuizApp.Models.Quiz
 @using System.Text.Json
 
 @{
     ViewData["Title"] = "Quiz Details";
 
+    @* Convert server model to JSON format for Vue.js, including nested questions and options *@
     var initialJson = JsonSerializer.Serialize(new {
         quizId = Model.QuizId,
         title = Model.Title ?? "",
@@ -21,13 +28,16 @@
     });
 }
 
+@* Vue.js root element for quiz details display *@
 <div id="quiz-details-app">
 
+    @* Display quiz title and description *@
     <h2>{{ quiz.title }}</h2>
     <p>{{ quiz.description }}</p>
 
     <h3>Questions</h3>
 
+    @* Message and button when quiz has no questions yet *@
     <div v-if="quiz.questions.length === 0">
         <p>No questions added yet.</p>
 
@@ -37,21 +47,28 @@
         </a>
     </div>
 
+    @* Display all questions when quiz has questions *@
     <div v-else>
+        @* Button to add another question to this quiz *@
         <a class="btn btn-success mb-3"
            :href="'/Questions/Create?quizId=' + quiz.quizId">
             Add Question
         </a>
 
+        @* List of all questions in this quiz *@
         <ul class="list-group">
+            @* Loop through each question *@
             <li class="list-group-item"
                 v-for="q in quiz.questions"
                 :key="q.id">
 
+                @* Question text and point value *@
                 <strong>{{ q.text }}</strong>
                 ({{ q.points }} points)
 
+                @* List of answer options for this question *@
                 <ul>
+                    @* Loop through each option - correct options shown in green with checkmark *@
                     <li v-for="opt in q.options"
                         :key="opt.id"
                         :style="opt.isCorrect ? 'color:green;font-weight:bold' : ''">
@@ -61,6 +78,7 @@
                     </li>
                 </ul>
 
+                @* Links to edit or delete this question *@
                 <a :href="'/Questions/Edit/' + q.id">Edit</a>
                 |
                 <a :href="'/Questions/Delete/' + q.id">Delete</a>

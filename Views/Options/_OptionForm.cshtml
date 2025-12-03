@@ -1,7 +1,13 @@
+@* 
+    Partial view for answer option form fields (text and isCorrect checkbox).
+    Used as a reusable component for option input fields.
+    Bound to Vue.js for two-way data binding.
+*@
 @model Option
 @using System.Text.Json
 
 @{
+    @* Prepare initial state for Vue.js from model *@
     var initialState = new {
         questionId = Model.QuestionId,
         text = Model.Text ?? "",
@@ -11,10 +17,13 @@
     var initialJson = JsonSerializer.Serialize(initialState);
 }
 
+@* Vue.js root element for option form fields *@
 <div id="option-form-app">
 
+    @* Hidden field for question ID - links option to its parent question *@
     <input type="hidden" asp-for="QuestionId" v-model="option.questionId" />
 
+    @* Option text input - the answer text that users will see *@
     <div class="mb-3">
         <label asp-for="Text" class="form-label"></label>
         <input asp-for="Text"
@@ -23,6 +32,7 @@
         <span asp-validation-for="Text" class="text-danger"></span>
     </div>
 
+    @* Checkbox to mark this option as the correct answer *@
     <div class="form-check mb-3">
         <input asp-for="IsCorrect"
                type="checkbox"

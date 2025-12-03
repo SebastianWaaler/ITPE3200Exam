@@ -1,3 +1,10 @@
+@* 
+    Admin page for creating a new question for a quiz.
+    Allows entering question text, point value, and multiple answer options.
+    Users can dynamically add/remove options using Vue.js.
+    One option must be marked as correct using radio buttons.
+    Server validates that at least 2 options exist and one is marked correct.
+*@
 @model QuizApp.Models.Question
 @using System.Text.Json
 @using System.Linq
@@ -5,14 +12,17 @@
 @{
     ViewData["Title"] = "Create Question";
 
+    @* Get existing options from model, or create empty list *@
     var optionsList = Model.Options?.ToList() ?? new List<QuizApp.Models.Option>();
 
+    @* Start with at least 2 empty options if none exist *@
     if (!optionsList.Any())
     {
         optionsList.Add(new QuizApp.Models.Option { Text = "", IsCorrect = false });
         optionsList.Add(new QuizApp.Models.Option { Text = "", IsCorrect = false });
     }
 
+    @* Prepare initial state for Vue.js - includes question data and options *@
     var initialState = new {
         quizId = Model.QuizId,
         text = Model.Text ?? "",
@@ -21,7 +31,7 @@
             text = o.Text ?? "",
             isCorrect = o.IsCorrect
         }),
-        correctIndex = optionsList.FindIndex(o => o.IsCorrect)
+        correctIndex = optionsList.FindIndex(o => o.IsCorrect)  // Index of correct option
     };
 
     var initialJson = JsonSerializer.Serialize(initialState);
@@ -29,19 +39,20 @@
 
 <h2>Create Question — @ViewBag.Quiz.Title</h2>
 
+@* Vue.js root element for question creation form *@
 <div id="question-create-app">
 
     <form asp-action="Create" method="post">
         <input type="hidden" asp-for="QuizId" />
 
-        <!-- TEXT -->
+        @* Question text input - required field *@
         <div class="mb-3">
             <label asp-for="Text" class="form-label" required></label>
             <input asp-for="Text" class="form-control" v-model="text" />
             <span asp-validation-for="Text" class="text-danger"></span>
         </div>
 
-        <!-- POINTS -->
+        @* Points input - number field for question point value *@
         <div class="mb-3">
             <label asp-for="Points" class="form-label"></label>
             <input asp-for="Points" type="number" class="form-control" v-model.number="points" />
@@ -51,7 +62,7 @@
         <hr />
         <h4>Answer Options</h4>
 
-               <!-- Validation Error Message -->
+        @* Display server-side validation errors (e.g., "At least two options required") *@
         @if (ViewData.ModelState[""]?.Errors?.Count > 0)
         {
             <div class="alert alert-danger">
@@ -62,21 +73,20 @@
             </div>
         }
 
-
-        <!-- OPTIONS -->
+        @* Dynamic list of answer options - users can add/remove options *@
         <div class="option-row mb-2"
              v-for="(opt, idx) in options"
              :key="idx">
 
             <div class="d-flex align-items-center">
 
-                <!-- bind name for POST -->
+                @* Option text input - bound to form POST data *@
                 <input class="form-control me-2"
                        :name="'Options[' + idx + '].Text'"
                        v-model="opt.text"
                        placeholder="Option text" />
 
-                <!-- correct option -->
+                @* Radio button to mark this option as correct - only one can be selected *@
                 <label class="form-check-label me-2 ms-2">
                     <input type="radio"
                            name="CorrectIndex"
@@ -86,7 +96,7 @@
                     Correct
                 </label>
 
-                <!-- REMOVE -->
+                @* Remove button - deletes this option from the list *@
                 <button type="button"
                         class="btn btn-danger btn-sm ms-2"
                         @@click="removeOption(idx)">
@@ -95,7 +105,7 @@
             </div>
         </div>
 
-        <!-- ADD OPTION -->
+        @* Button to add a new empty option to the list *@
         <button type="button"
                 class="btn btn-secondary mt-2"
                 @@click="addOption">
@@ -137,16 +147,21 @@
             },
 
             methods: {
+                @* Adds a new empty option to the options array *@
                 addOption() {
                     this.options.push({ text: "", isCorrect: false });
                 },
 
+                @* Removes an option at the given index and adjusts correctIndex if needed *@
                 removeOption(index) {
                     this.options.splice(index, 1);
 
+                    @* If the removed option was marked correct, clear the selection *@
                     if (this.correctIndex === index) {
                         this.correctIndex = -1;
-                    } else if (this.correctIndex > index) {
+                    } 
+                    @* If a later option was marked correct, decrement its index *@
+                    else if (this.correctIndex > index) {
                         this.correctIndex--;
                     }
                 }
