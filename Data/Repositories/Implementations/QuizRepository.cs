@@ -6,9 +6,8 @@ using QuizApp.Data.Repositories.Interfaces;
 namespace QuizApp.Data.Repositories.Implementations
 {
     /// <summary>
-    /// Repository implementation for Quiz entity using Entity Framework Core.
+    /// Repository for Quiz database operations. Handles all data access for quizzes.
     /// Implements the repository pattern to separate data access logic from business logic.
-    /// All database operations are asynchronous for better performance.
     /// </summary>
     public class QuizRepository : IQuizRepository
     {
@@ -20,8 +19,8 @@ namespace QuizApp.Data.Repositories.Implementations
         }
 
         /// <summary>
-        /// Retrieves all quizzes from the database asynchronously.
-        /// Uses AsNoTracking for read-only operations to improve performance.
+        /// Retrieves all quizzes from the database. Used by the quiz list page.
+        /// Uses AsNoTracking for better performance since we're only reading the data.
         /// </summary>
         public async Task<IEnumerable<Quiz>> GetAllAsync()
         {
@@ -29,8 +28,9 @@ namespace QuizApp.Data.Repositories.Implementations
         }
 
         /// <summary>
-        /// Retrieves a quiz by ID including related questions and options.
-        /// Returns null if the quiz is not found.
+        /// Retrieves a single quiz by ID, including all its questions and their answer options.
+        /// Used when displaying quiz details, taking a quiz, or editing a quiz.
+        /// Uses eager loading (Include) to load related data in one database query.
         /// </summary>
         public async Task<Quiz?> GetByIdAsync(int id)
         {
@@ -41,7 +41,7 @@ namespace QuizApp.Data.Repositories.Implementations
         }
 
         /// <summary>
-        /// Adds a new quiz to the database asynchronously.
+        /// Adds a new quiz to the database. Used when creating a new quiz.
         /// </summary>
         public async Task AddAsync(Quiz quiz)
         {
@@ -50,7 +50,7 @@ namespace QuizApp.Data.Repositories.Implementations
         }
 
         /// <summary>
-        /// Updates an existing quiz in the database asynchronously.
+        /// Updates an existing quiz in the database. Used when editing a quiz's title or description.
         /// </summary>
         public async Task UpdateAsync(Quiz quiz)
         {
@@ -59,8 +59,8 @@ namespace QuizApp.Data.Repositories.Implementations
         }
 
         /// <summary>
-        /// Deletes a quiz by ID from the database asynchronously.
-        /// Does nothing if the quiz does not exist.
+        /// Deletes a quiz from the database. Also deletes all associated questions and options (cascade delete).
+        /// If the quiz doesn't exist, does nothing (no error).
         /// </summary>
         public async Task DeleteAsync(int id)
         {
@@ -73,7 +73,8 @@ namespace QuizApp.Data.Repositories.Implementations
         }
 
         /// <summary>
-        /// Checks if a quiz exists in the database by ID.
+        /// Checks if a quiz with the given ID exists in the database.
+        /// Used for validation before updating or deleting.
         /// </summary>
         public async Task<bool> ExistsAsync(int id)
         {

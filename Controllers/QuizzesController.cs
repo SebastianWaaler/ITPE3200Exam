@@ -10,7 +10,11 @@ using System.Threading.Tasks;
 
 namespace QuizApp.Controllers
 {
-    [Authorize] // default: must be logged in
+    /// <summary>
+    /// Controller for managing quizzes. Handles displaying quiz lists, creating/editing/deleting quizzes (admin only),
+    /// and allowing users to take quizzes and submit answers.
+    /// </summary>
+    [Authorize]
     public class QuizController : Controller
     {
         private readonly IQuizRepository _quizzes;
@@ -22,7 +26,10 @@ namespace QuizApp.Controllers
             _logger = logger;
         }
 
-        // PUBLIC: everyone can see quiz list
+        /// <summary>
+        /// Displays the main quiz list page. Shows all available quizzes that users can take.
+        /// Anyone can view this page (no login required).
+        /// </summary>
         [AllowAnonymous]
         public async Task<IActionResult> Index()
         {
@@ -38,7 +45,11 @@ namespace QuizApp.Controllers
             }
         }
 
-        // ADMIN: quiz details with questions/options (admin management view)
+        /// <summary>
+        /// Shows detailed view of a quiz for admins. Displays the quiz title, description, and all questions
+        /// with their answer options. Admins can see which options are marked as correct.
+        /// Used for managing quiz content.
+        /// </summary>
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Details(int? id)
         {
@@ -58,14 +69,20 @@ namespace QuizApp.Controllers
             }
         }
 
-        // ADMIN: create quiz (view)
+        /// <summary>
+        /// Shows the form for creating a new quiz. Admin only.
+        /// The form allows entering a title and description for the quiz.
+        /// </summary>
         [Authorize(Roles = "Admin")]
         public IActionResult Create()
         {
             return View();
         }
 
-        // ADMIN: create quiz (fallback MVC POST – even if you mostly use API)
+        /// <summary>
+        /// Saves a newly created quiz to the database. Admin only.
+        /// After creation, redirects to the quiz list page.
+        /// </summary>
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
@@ -85,7 +102,10 @@ namespace QuizApp.Controllers
             }
         }
 
-        // ADMIN: edit quiz (view)
+        /// <summary>
+        /// Shows the edit form for an existing quiz. Admin only.
+        /// Pre-fills the form with the current quiz title and description.
+        /// </summary>
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Edit(int? id)
         {
@@ -105,7 +125,10 @@ namespace QuizApp.Controllers
             }
         }
 
-        // ADMIN: edit quiz (fallback MVC POST – your Vue/API also protects)
+        /// <summary>
+        /// Updates an existing quiz's title and description in the database. Admin only.
+        /// After updating, redirects to the quiz list page.
+        /// </summary>
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
@@ -131,7 +154,10 @@ namespace QuizApp.Controllers
             }
         }
 
-        // ADMIN: delete quiz (confirm view)
+        /// <summary>
+        /// Shows the confirmation page before deleting a quiz. Admin only.
+        /// Displays the quiz title so the admin can confirm they want to delete it.
+        /// </summary>
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(int? id)
         {
@@ -151,7 +177,11 @@ namespace QuizApp.Controllers
             }
         }
 
-        // ADMIN: delete quiz (POST)
+        /// <summary>
+        /// Permanently deletes a quiz from the database. Admin only.
+        /// This will also delete all questions and options associated with the quiz.
+        /// After deletion, redirects to the quiz list page.
+        /// </summary>
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
@@ -169,7 +199,10 @@ namespace QuizApp.Controllers
             }
         }
 
-        // LOGGED-IN USERS ONLY: Take quiz
+        /// <summary>
+        /// Displays the quiz-taking page. Shows all questions with their answer options as radio buttons.
+        /// Users must be logged in to take a quiz. The correct answers are hidden from users.
+        /// </summary>
         [Authorize]
         public async Task<IActionResult> Take(int id)
         {
@@ -187,7 +220,12 @@ namespace QuizApp.Controllers
             }
         }
 
-        // LOGGED-IN USERS ONLY: Submit answers
+        /// <summary>
+        /// Processes the submitted quiz answers and calculates the score.
+        /// Compares each selected answer against the correct answer for that question.
+        /// Awards points for each correct answer based on the question's point value.
+        /// Returns a results page showing the score (earned points / total points) and percentage.
+        /// </summary>
         [HttpPost]
         [Authorize]
         public async Task<IActionResult> Submit(int QuizId)
@@ -200,11 +238,13 @@ namespace QuizApp.Controllers
                 int totalPoints = 0;
                 int earnedPoints = 0;
 
+                // Go through each question and check if the user's selected answer is correct
                 foreach (var question in quiz.Questions)
                 {
                     totalPoints += question.Points;
                     string formKey = "question_" + question.Id;
 
+                    // Skip if user didn't answer this question
                     if (!Request.Form.ContainsKey(formKey))
                         continue;
 

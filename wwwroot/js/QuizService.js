@@ -1,11 +1,12 @@
 /**
- * API Service Layer for Quiz operations.
- * Separates HTTP request handling from business logic on the client-side.
- * This service handles all communication with the QuizApiController.
+ * Service layer for quiz API operations. Separates HTTP request handling from business logic.
+ * Used by Vue.js components to interact with the QuizApiController on the server.
+ * All methods return promises and throw errors if the API call fails.
  */
 export default {
     /**
-     * Fetches all quizzes from the API.
+     * Fetches all quizzes from the API. Used by the quiz list page to display available quizzes.
+     * Returns an array of quiz objects with id, title, and description.
      * @returns {Promise<Array>} Array of quiz objects
      */
     async getAll() {
@@ -17,7 +18,9 @@ export default {
     },
 
     /**
-     * Fetches a single quiz by ID including questions and options.
+     * Fetches a single quiz by ID, including all its questions and answer options.
+     * Used by the quiz-taking page to load the full quiz content.
+     * Returns a quiz object with nested questions and options.
      * @param {number} id - The quiz ID
      * @returns {Promise<Object>} Quiz object with questions and options
      */
@@ -30,9 +33,10 @@ export default {
     },
 
     /**
-     * Creates a new quiz via the API.
-     * @param {Object} data - Quiz data (title, description)
-     * @returns {Promise<Object>} Created quiz object
+     * Creates a new quiz via the API. Used by the admin quiz creation page.
+     * Sends quiz data (title, description) to the server and returns the created quiz with its generated ID.
+     * @param {Object} data - Quiz data object with title and description
+     * @returns {Promise<Object>} Created quiz object with quizId
      */
     async create(data) {
         const res = await fetch("/api/QuizApi", {
@@ -49,8 +53,10 @@ export default {
     },
 
     /**
-     * Updates an existing quiz via the API.
-     * @param {Object} data - Quiz data (quizId, title, description)
+     * Updates an existing quiz's title and description via the API.
+     * Used by the admin quiz edit page.
+     * @param {Object} data - Quiz data object with quizId, title, and description
+     * @returns {Promise<void>}
      */
     async update(data) {
         const payload = {
@@ -72,8 +78,10 @@ export default {
     },
 
     /**
-     * Deletes a quiz by ID via the API.
+     * Deletes a quiz by ID via the API. Used by the admin quiz deletion page.
+     * Permanently removes the quiz and all its questions and options from the database.
      * @param {number} id - The quiz ID to delete
+     * @returns {Promise<void>}
      */
     async delete(id) {
         const res = await fetch(`/api/QuizApi/${id}`, {

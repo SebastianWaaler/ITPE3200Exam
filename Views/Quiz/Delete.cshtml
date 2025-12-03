@@ -4,7 +4,6 @@
 @{
     ViewData["Title"] = "Delete Quiz";
 
-    // Prepare Vue initial state
     var quizJson = JsonSerializer.Serialize(new {
         quizId = Model.QuizId,
         title = Model.Title ?? ""
@@ -40,8 +39,7 @@
         }
     }).mount("#quiz-delete-app");
 
-    // client sider error handling
-        window.addEventListener("error", function (event) {
+    window.addEventListener("error", function (event) {
             console.error("Client error on Delete Quiz page:", event.error || event.message);
             alert("Something went wrong on this page. Please try again.");
         });

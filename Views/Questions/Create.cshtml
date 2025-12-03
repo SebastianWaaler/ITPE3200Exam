@@ -5,7 +5,6 @@
 @{
     ViewData["Title"] = "Create Question";
 
-    // start with at least 2 empty options
     var optionsList = Model.Options?.ToList() ?? new List<QuizApp.Models.Option>();
 
     if (!optionsList.Any())

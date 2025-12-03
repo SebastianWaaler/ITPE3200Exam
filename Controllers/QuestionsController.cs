@@ -9,6 +9,10 @@ using Microsoft.AspNetCore.Authorization;
 
 namespace QuizApp.Controllers
 {
+    /// <summary>
+    /// Controller for managing questions within quizzes. Admin only.
+    /// Questions are the individual problems in a quiz, each with multiple answer options.
+    /// </summary>
     [Authorize(Roles = "Admin")]
     [Route("Questions")]
     public class QuestionsController : Controller
@@ -27,7 +31,10 @@ namespace QuizApp.Controllers
             _logger = logger;
         }
 
-        // GET: /Questions/Details/5
+        /// <summary>
+        /// Shows details of a specific question including its text, point value, and all answer options.
+        /// Used by admins to view question information.
+        /// </summary>
         [HttpGet("Details/{id:int}")]
         public async Task<IActionResult> Details(int id)
         {
@@ -45,7 +52,11 @@ namespace QuizApp.Controllers
             }
         }
 
-        // GET: /Questions/Create?quizId=5
+        /// <summary>
+        /// Shows the form for creating a new question for a specific quiz.
+        /// The form allows entering the question text, point value, and multiple answer options.
+        /// At least 2 options are required, and one must be marked as correct.
+        /// </summary>
         [HttpGet("Create")]
         public async Task<IActionResult> Create(int quizId)
         {
@@ -69,7 +80,12 @@ namespace QuizApp.Controllers
             }
         }
 
-        // POST: /Questions/Create
+        /// <summary>
+        /// Saves a newly created question to the database.
+        /// Validates that the question has at least 2 answer options and that one is marked as correct.
+        /// The CorrectIndex parameter indicates which option (by position) is the correct answer.
+        /// After creation, redirects back to the quiz details page.
+        /// </summary>
         [HttpPost("Create")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(Question question, int? CorrectIndex)
@@ -88,17 +104,16 @@ namespace QuizApp.Controllers
 
                 question.Options ??= new List<Option>();
 
-                // Clean options: remove empty options and trim whitespace
+                // Remove empty options and trim text
                 question.Options = question.Options
                     .Where(o => !string.IsNullOrWhiteSpace(o.Text))
                     .Select(o => new Option { Text = o.Text.Trim(), IsCorrect = false })
                     .ToList();
 
-                // Server-side validation: require at least 2 options
                 if (question.Options.Count < 2)
                     ModelState.AddModelError("", "At least two options required.");
 
-                // Server-side validation: require a correct answer to be selected
+                // Make sure a correct answer is selected
                 if (CorrectIndex == null || CorrectIndex < 0 || CorrectIndex >= question.Options.Count)
                     ModelState.AddModelError("", "Select a correct answer.");
                 else
@@ -124,7 +139,10 @@ namespace QuizApp.Controllers
             }
         }
 
-        // GET: /Questions/Edit/5
+        /// <summary>
+        /// Shows the edit form for an existing question.
+        /// Pre-fills the form with the current question text, points, and all answer options.
+        /// </summary>
         [HttpGet("Edit/{id:int}")]
         public async Task<IActionResult> Edit(int id)
         {
@@ -142,7 +160,14 @@ namespace QuizApp.Controllers
             }
         }
 
-        // POST: /Questions/Edit/5
+        /// <summary>
+        /// Updates an existing question in the database.
+        /// Allows changing the question text, point value, and answer options.
+        /// Can add new options, update existing ones, or delete options (via DeletedOptionIds).
+        /// The CorrectIndex parameter indicates which option is the correct answer.
+        /// Validates that at least 2 options remain and one is marked as correct.
+        /// After updating, redirects back to the quiz details page.
+        /// </summary>
         [HttpPost("Edit/{id:int}")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(
@@ -160,13 +185,12 @@ namespace QuizApp.Controllers
                 var question = await _questions.GetByIdAsync(id);
                 if (question == null) return NotFound();
 
-                // Update question fields
                 question.Text = formQuestion.Text?.Trim() ?? "";
                 question.Points = formQuestion.Points;
 
                 Options ??= new List<Option>();
 
-                // Clean options: remove empty options and trim whitespace
+                // Filter out empty options and reset IsCorrect flags
                 var cleanedOptions = Options
                     .Where(o => !string.IsNullOrWhiteSpace(o.Text))
                     .Select(o => new Option
@@ -178,11 +202,9 @@ namespace QuizApp.Controllers
                     })
                     .ToList();
 
-                // Server-side validation: require at least 2 options
                 if (cleanedOptions.Count < 2)
                     ModelState.AddModelError("", "A question must have at least 2 answer options.");
 
-                // Server-side validation: require a correct answer to be selected
                 if (CorrectIndex == null || CorrectIndex < 0 || CorrectIndex >= cleanedOptions.Count)
                     ModelState.AddModelError("", "Select which answer is correct.");
                 else
@@ -191,7 +213,7 @@ namespace QuizApp.Controllers
                 if (!ModelState.IsValid)
                     return View(question);
 
-                // Deleted options
+                // Handle deleted options
                 var deletedIds = new List<int>();
                 if (!string.IsNullOrWhiteSpace(DeletedOptionIds))
                 {
@@ -208,7 +230,7 @@ namespace QuizApp.Controllers
                         question.Options.Remove(delOpt);
                 }
 
-                // Add/update options
+                // Add new options or update existing ones
                 foreach (var opt in cleanedOptions)
                 {
                     if (opt.Id == 0)
@@ -239,7 +261,10 @@ namespace QuizApp.Controllers
             }
         }
 
-        // GET: /Questions/Delete/5
+        /// <summary>
+        /// Shows the confirmation page before deleting a question.
+        /// Displays the question text so the admin can confirm they want to delete it.
+        /// </summary>
         [HttpGet("Delete/{id:int}")]
         public async Task<IActionResult> Delete(int id)
         {
@@ -249,7 +274,11 @@ namespace QuizApp.Controllers
             return View(question);
         }
 
-        // POST: /Questions/Delete/5
+        /// <summary>
+        /// Permanently deletes a question from the database.
+        /// This will also delete all answer options associated with the question.
+        /// After deletion, redirects back to the quiz details page.
+        /// </summary>
         [HttpPost("Delete/{id:int}")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)

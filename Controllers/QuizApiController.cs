@@ -5,8 +5,12 @@ using QuizApp.Models;
 
 namespace QuizApp.Controllers
 {
+    /// <summary>
+    /// REST API controller for quiz operations. Used by client-side JavaScript (Vue.js) to fetch and manipulate quiz data.
+    /// Provides JSON endpoints for the quiz list page, quiz taking page, and admin quiz management.
+    /// </summary>
     [ApiController]
-    [Route("api/[controller]")]  // -> /api/QuizApi
+    [Route("api/[controller]")]
     public class QuizApiController : ControllerBase
     {
         private readonly IQuizRepository _quizzes;
@@ -16,16 +20,18 @@ namespace QuizApp.Controllers
             _quizzes = quizzes;
         }
 
-        // GET: /api/QuizApi
-        // Return all quizzes (for Index page)
+        /// <summary>
+        /// Returns a list of all quizzes as JSON. Used by the quiz list page to display available quizzes.
+        /// Returns only basic quiz information (id, title, description) to avoid circular references.
+        /// Anyone can access this endpoint (no login required).
+        /// </summary>
         [HttpGet]
         [AllowAnonymous]
         public async Task<IActionResult> GetAll()
         {
             var quizzes = await _quizzes.GetAllAsync();
 
-            // You can return entities directly if they don't create cycles
-            // or project to a DTO if you prefer.
+            // Return simplified DTO to avoid circular references
             var dto = quizzes.Select(q => new
             {
                 quizId = q.QuizId,
@@ -36,10 +42,14 @@ namespace QuizApp.Controllers
             return Ok(dto);
         }
 
-        // GET: /api/QuizApi/5
-        // Single quiz including its questions/options (your GetByIdAsync already loads them)
+        /// <summary>
+        /// Returns a single quiz with all its questions and answer options as JSON.
+        /// Used by the quiz-taking page to load the full quiz content.
+        /// Includes the isCorrect flag for each option (used server-side for scoring, but hidden from users in the UI).
+        /// Requires user to be logged in.
+        /// </summary>
         [HttpGet("{id}")]
-        [Authorize]   // you can remove this if you want anonymous Take
+        [Authorize]
         public async Task<IActionResult> Get(int id)
         {
             var quiz = await _quizzes.GetByIdAsync(id);
@@ -68,8 +78,12 @@ namespace QuizApp.Controllers
             return Ok(dto);
         }
 
-        // POST: /api/QuizApi
-        // Create a new quiz (used by Create page if you go full-API there)
+        /// <summary>
+        /// Creates a new quiz via API. Used by the admin quiz creation page.
+        /// Accepts quiz data as JSON in the request body.
+        /// Returns the created quiz with its generated ID.
+        /// Admin only.
+        /// </summary>
         [HttpPost]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Create([FromBody] Quiz quiz)
@@ -79,7 +93,6 @@ namespace QuizApp.Controllers
 
             await _quizzes.AddAsync(quiz);
 
-            // CreatedAtAction needs the correct route and key name
             return CreatedAtAction(
                 nameof(Get),
                 new { id = quiz.QuizId },
@@ -91,8 +104,12 @@ namespace QuizApp.Controllers
                 });
         }
 
-        // PUT: /api/QuizApi/5
-        // Update basic quiz info (Title, Description)
+        /// <summary>
+        /// Updates an existing quiz's title and description via API.
+        /// Used by the admin quiz edit page.
+        /// Accepts quiz data as JSON in the request body.
+        /// Admin only.
+        /// </summary>
         [HttpPut("{id}")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Update(int id, [FromBody] Quiz quiz)
@@ -110,7 +127,11 @@ namespace QuizApp.Controllers
             return NoContent();
         }
 
-        // DELETE: /api/QuizApi/5
+        /// <summary>
+        /// Deletes a quiz via API. Used by the admin quiz deletion page.
+        /// Permanently removes the quiz and all its questions and options from the database.
+        /// Admin only.
+        /// </summary>
         [HttpDelete("{id}")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(int id)

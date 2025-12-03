@@ -2,7 +2,6 @@
 @using System.Text.Json
 
 @{
-    // Prepare Vue initial state
     var initialState = new {
         questionId = Model.QuestionId,
         text = Model.Text ?? "",
@@ -14,10 +13,8 @@
 
 <div id="option-form-app">
 
-    <!-- Hidden Question ID -->
     <input type="hidden" asp-for="QuestionId" v-model="option.questionId" />
 
-    <!-- Option Text -->
     <div class="mb-3">
         <label asp-for="Text" class="form-label"></label>
         <input asp-for="Text"
@@ -26,7 +23,6 @@
         <span asp-validation-for="Text" class="text-danger"></span>
     </div>
 
-    <!-- IsCorrect Checkbox -->
     <div class="form-check mb-3">
         <input asp-for="IsCorrect"
                type="checkbox"
@@ -57,7 +53,6 @@
             }
         }).mount("#option-form-app");
 
-        // client-side error handler
         window.addEventListener("error", function (event) {
             console.error("Client error on Option Form page:", event.error || event.message);
         });

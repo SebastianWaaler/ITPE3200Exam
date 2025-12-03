@@ -3,19 +3,24 @@ using Microsoft.EntityFrameworkCore;
 using QuizApp.Data;
 using QuizApp.Data.Repositories.Interfaces;
 using QuizApp.Data.Repositories.Implementations;
-using QuizApp.Models; // ApplicationUser
+using QuizApp.Models;
 
+/// <summary>
+/// Application startup and configuration. Sets up dependency injection, database, authentication,
+/// and seeds initial data (roles and default admin user).
+/// </summary>
 var builder = WebApplication.CreateBuilder(args);
 
-// LOGGING
-
+// Configure logging to console
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 
-// DATABASE
+// Configure SQLite database connection
 builder.Services.AddDbContext<QuizContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("QuizContext")));
-// IDENTITY (with roles + ApplicationUser)
+
+// Configure ASP.NET Core Identity for user authentication and authorization
+// Uses ApplicationUser as the user type and supports roles (Admin, Player)
 builder.Services.AddDefaultIdentity<ApplicationUser>(options =>
     {
         options.SignIn.RequireConfirmedAccount = false; 
@@ -23,19 +28,20 @@ builder.Services.AddDefaultIdentity<ApplicationUser>(options =>
     .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<QuizContext>();
 
-// MVC + Razor Pages
+// Register MVC controllers and Razor Pages
 builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages();
 
-// REPOSITORIES
+// Register repository implementations for dependency injection
+// Uses scoped lifetime so each HTTP request gets its own repository instance
 builder.Services.AddScoped<IQuizRepository, QuizRepository>();
 builder.Services.AddScoped<IQuestionRepository, QuestionRepository>();
 builder.Services.AddScoped<IOptionRepository, OptionRepository>();
 
 var app = builder.Build();
 
-// SEED ROLES + DEFAULT ADMIN USER
-// SEED ROLES + DEFAULT ADMIN USER
+// Seed initial data: create roles and default admin user if they don't exist
+// This runs once when the application starts
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
@@ -43,6 +49,7 @@ using (var scope = app.Services.CreateScope())
     var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
     var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
 
+    // Create Admin and Player roles if they don't exist
     string[] roleNames = { "Admin", "Player" };
 
     foreach (var roleName in roleNames)
@@ -53,17 +60,17 @@ using (var scope = app.Services.CreateScope())
         }
     }
 
-    // Create a default admin user
+    // Create default admin user for testing/managing the application
+    // Email: admin@example.com, Password: Admin123!
     string adminEmail = "admin@example.com";
-    string adminPassword = "Admin123!"; // change before handing in 😉
+    string adminPassword = "Admin123!"; 
 
-    // 👉 use email as username too
     var adminUser = await userManager.FindByNameAsync(adminEmail);
     if (adminUser == null)
     {
         adminUser = new ApplicationUser
         {
-            UserName = adminEmail,   // 👈 matches what login will use
+            UserName = adminEmail,
             Email = adminEmail
         };
 
@@ -74,7 +81,6 @@ using (var scope = app.Services.CreateScope())
         }
         else
         {
-            // Optional: log errors to console so you can see if password rules failed, etc.
             foreach (var error in createResult.Errors)
             {
                 Console.WriteLine($"Admin user creation error: {error.Code} - {error.Description}");
@@ -83,8 +89,7 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-
-// PIPELINE
+// Configure HTTP request pipeline
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
@@ -96,15 +101,16 @@ app.UseStaticFiles();
 
 app.UseRouting();
 
+// Authentication must come before authorization
 app.UseAuthentication();
 app.UseAuthorization();
 
-// MVC routes
+// Map MVC routes - default route goes to Quiz/Index
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Quiz}/{action=Index}/{id?}");
 
-// Identity Razor Pages (/Identity/Account/Login, etc.)
+// Map Razor Pages (used for Identity pages like Login, Register)
 app.MapRazorPages();
 
 app.Run();

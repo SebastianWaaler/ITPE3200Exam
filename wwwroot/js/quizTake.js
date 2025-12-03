@@ -1,4 +1,3 @@
-// wwwroot/js/quizTake.js
 import { getQuiz } from "./api.js";
 
 async function loadQuiz() {
@@ -9,8 +8,6 @@ async function loadQuiz() {
 
     try {
         const quiz = await getQuiz(id);
-
-        // simple example: show some info loaded via API
         info.textContent = `Loaded via API: ${quiz.title} (${quiz.questions.length} questions)`;
     } catch (err) {
         console.error("Client error loading quiz via API:", err);
@@ -18,5 +15,4 @@ async function loadQuiz() {
     }
 }
 
-// Run when the page is ready
 document.addEventListener("DOMContentLoaded", loadQuiz);

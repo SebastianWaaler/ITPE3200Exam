@@ -3,8 +3,7 @@
 
 @{
     ViewData["Title"] = "Create Quiz";
-
-    // Prepare Vue initial state safely as JSON    
+    
     var state = new {
         title = Model?.Title ?? "",
         description = Model?.Description ?? ""
@@ -70,11 +69,9 @@
             };
         },
         methods: {
-            // Client-side validation before submitting
             validate() {
                 this.errors = [];
                 
-                // Validate title (required, max 200 characters)
                 if (!this.title || this.title.trim() === "") {
                     this.errors.push("Title is required");
                 } else if (this.title.length > 200) {
@@ -85,10 +82,8 @@
             },
             
             async saveQuiz() {
-                // Clear previous errors
                 this.errors = [];
                 
-                // Client-side validation
                 if (!this.validate()) {
                     return;
                 }
@@ -96,16 +91,12 @@
                 this.saving = true;
                 
                 try {
-                    // Build quiz object for API
                     const q = {
                         title: this.title.trim(),
                         description: this.description.trim()
                     };
 
-                    // Call API to create quiz
                     const created = await QuizService.create(q);
-
-                    // Redirect to quiz details page
                     window.location.href = `/Quiz/Details/${created.quizId}`;
                 } catch (err) {
                     console.error("Error creating quiz:", err);
@@ -116,8 +107,6 @@
             }
         }
     }).mount("#quiz-create-app");
-
-    // Client-side error handler
     window.addEventListener("error", function (event) {
         console.error("Client error on Create Quiz page:", event.error || event.message);
         alert("Something went wrong on this page. Please try again.");

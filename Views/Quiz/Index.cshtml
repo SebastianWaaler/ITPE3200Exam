@@ -1,7 +1,6 @@
 @{
     ViewData["Title"] = "Quizzes";
 
-    // Server only tells Vue if user is admin
     var isAdmin = User.IsInRole("Admin");
 }
 
@@ -143,7 +142,6 @@
             },
 
             methods: {
-                // Client-side content filtering: filter quizzes by search query
                 filterQuizzes() {
                     const query = this.searchQuery.toLowerCase().trim();
                     
@@ -152,7 +150,6 @@
                         return;
                     }
 
-                    // Filter by title or description
                     this.filteredQuizzes = this.quizzes.filter(quiz => {
                         const titleMatch = quiz.title?.toLowerCase().includes(query) || false;
                         const descMatch = quiz.description?.toLowerCase().includes(query) || false;
@@ -161,8 +158,6 @@
                 }
             }
         }).mount('#quiz-index-app');
-
-        // client-side error handler for this page
         window.addEventListener("error", function (event) {
             console.error("Client error on Quiz Index page:", event.error || event.message);
             alert("Something went wrong on this page. Please try again.");

@@ -4,7 +4,6 @@
 @{
     ViewData["Title"] = "Quiz Details";
 
-    // Convert server model → Vue-friendly JSON (camelCase)
     var initialJson = JsonSerializer.Serialize(new {
         quizId = Model.QuizId,
         title = Model.Title ?? "",
@@ -29,7 +28,6 @@
 
     <h3>Questions</h3>
 
-    <!-- No questions -->
     <div v-if="quiz.questions.length === 0">
         <p>No questions added yet.</p>
 
@@ -39,7 +37,6 @@
         </a>
     </div>
 
-    <!-- Questions exist -->
     <div v-else>
         <a class="btn btn-success mb-3"
            :href="'/Questions/Create?quizId=' + quiz.quizId">
@@ -80,7 +77,6 @@
     <script>
         const { createApp } = Vue;
 
-        // Server → Vue JSON payload
         const initial = @Html.Raw(initialJson);
 
         createApp({
@@ -90,8 +86,6 @@
                 };
             }
         }).mount("#quiz-details-app");
-
-        // client sider error handling
         window.addEventListener("error", (event) => {
             console.error("Client error on Quiz Details page:", event.error || event.message);
             alert("Something went wrong. Please try again.");

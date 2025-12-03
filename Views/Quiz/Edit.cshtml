@@ -71,11 +71,9 @@
             };
         },
         methods: {
-            // Client-side validation before submitting
             validate() {
                 this.errors = [];
                 
-                // Validate title (required, max 200 characters)
                 if (!this.title || this.title.trim() === "") {
                     this.errors.push("Title is required");
                 } else if (this.title.length > 200) {
@@ -86,10 +84,8 @@
             },
             
             async updateQuiz() {
-                // Clear previous errors
                 this.errors = [];
                 
-                // Client-side validation
                 if (!this.validate()) {
                     return;
                 }

@@ -4,7 +4,6 @@ namespace QuizApp.Models
 {
     public class ApplicationUser : IdentityUser
     {
-        // later you could add properties like
-        // public string DisplayName { get; set; }
+        // Can add custom properties here if needed
     }
 }

@@ -1,21 +1,24 @@
-using System;                                                   // Exception, etc.
-using System.Threading.Tasks;                                   // Task / async
-using Microsoft.AspNetCore.Authorization;                       // [Authorize]
-using Microsoft.AspNetCore.Mvc;                                 // MVC base/types
-using Microsoft.EntityFrameworkCore;                            // DbUpdateConcurrencyException
-using Microsoft.Extensions.Logging;                             // ILogger
-using QuizApp.Data.Repositories.Interfaces;                     // IOptionRepository, IQuestionRepository
-using QuizApp.Models;                                           // Option, Question
+using System;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using QuizApp.Data.Repositories.Interfaces;
+using QuizApp.Models;
 
 namespace QuizApp.Controllers
 {
-    // ADMIN ONLY: Only Admins can manage options
+    /// <summary>
+    /// Controller for managing answer options within questions. Admin only.
+    /// Options are the possible answers for a question. Each question has multiple options, with one marked as correct.
+    /// </summary>
     [Authorize(Roles = "Admin")]
     public class OptionsController : Controller
     {
-        private readonly IOptionRepository _options;              // Option repository
-        private readonly IQuestionRepository _questions;          // Question repository
-        private readonly ILogger<OptionsController> _logger;      // Logger for this controller
+        private readonly IOptionRepository _options;
+        private readonly IQuestionRepository _questions;
+        private readonly ILogger<OptionsController> _logger;
 
         public OptionsController(
             IOptionRepository options,
@@ -27,12 +30,14 @@ namespace QuizApp.Controllers
             _logger = logger;
         }
 
-        // GET: /Options/ByQuestion/5
+        /// <summary>
+        /// Shows all answer options for a specific question. Displays a list of options with their text and correct status.
+        /// Used by admins to view and manage all options for a question.
+        /// </summary>
         public async Task<IActionResult> ByQuestion(int questionId)
         {
             try
             {
-                // Load parent question via repository
                 var question = await _questions.GetByIdAsync(questionId);
 
                 if (question == null)
@@ -41,11 +46,10 @@ namespace QuizApp.Controllers
                     return NotFound();
                 }
 
-                // Load options list via repository
                 var options = await _options.GetByQuestionIdAsync(questionId);
 
                 ViewBag.Question = question;
-                return View(options);                                   // ByQuestion.cshtml
+                return View(options);
             }
             catch (Exception ex)
             {
@@ -54,7 +58,10 @@ namespace QuizApp.Controllers
             }
         }
 
-        // GET: /Options/Create?questionId=5
+        /// <summary>
+        /// Shows the form for creating a new answer option for a specific question.
+        /// The form allows entering the option text and marking it as correct or incorrect.
+        /// </summary>
         public async Task<IActionResult> Create(int questionId)
         {
             try
@@ -77,7 +84,11 @@ namespace QuizApp.Controllers
             }
         }
 
-        // POST: /Options/Create
+        /// <summary>
+        /// Saves a newly created answer option to the database.
+        /// Validates that the parent question exists.
+        /// After creation, redirects back to the options list for that question.
+        /// </summary>
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create([Bind("Text,IsCorrect,QuestionId")] Option option)
@@ -111,7 +122,10 @@ namespace QuizApp.Controllers
             }
         }
 
-        // GET: /Options/Edit/5
+        /// <summary>
+        /// Shows the edit form for an existing answer option.
+        /// Pre-fills the form with the current option text and correct status.
+        /// </summary>
         public async Task<IActionResult> Edit(int? id)
         {
             if (id == null)
@@ -122,7 +136,7 @@ namespace QuizApp.Controllers
 
             try
             {
-                var option = await _options.GetByIdAsync(id.Value);  // includes Question + Quiz via repo
+                var option = await _options.GetByIdAsync(id.Value);
 
                 if (option == null)
                 {
@@ -139,7 +153,12 @@ namespace QuizApp.Controllers
             }
         }
 
-        // POST: /Options/Edit/5
+        /// <summary>
+        /// Updates an existing answer option in the database.
+        /// Allows changing the option text and whether it's marked as correct.
+        /// Validates that the parent question exists.
+        /// After updating, redirects back to the options list for that question.
+        /// </summary>
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(int id, [Bind("Id,Text,IsCorrect,QuestionId")] Option option)
@@ -187,7 +206,10 @@ namespace QuizApp.Controllers
             }
         }
 
-        // GET: /Options/Delete/5
+        /// <summary>
+        /// Shows the confirmation page before deleting an answer option.
+        /// Displays the option text so the admin can confirm they want to delete it.
+        /// </summary>
         public async Task<IActionResult> Delete(int? id)
         {
             if (id == null)
@@ -198,7 +220,7 @@ namespace QuizApp.Controllers
 
             try
             {
-                var option = await _options.GetByIdAsync(id.Value);  // includes Question + Quiz via repo
+                var option = await _options.GetByIdAsync(id.Value);
 
                 if (option == null)
                 {
@@ -215,7 +237,10 @@ namespace QuizApp.Controllers
             }
         }
 
-        // POST: /Options/Delete/5
+        /// <summary>
+        /// Permanently deletes an answer option from the database.
+        /// After deletion, redirects back to the options list for the parent question.
+        /// </summary>
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)

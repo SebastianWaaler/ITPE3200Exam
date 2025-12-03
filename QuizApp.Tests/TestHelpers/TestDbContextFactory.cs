@@ -8,14 +8,12 @@ namespace QuizApp.Tests.TestHelpers
     {
         public static QuizContext Create()
         {
-            // Use a unique DB name per test run so tests never collide
+            // Unique DB name per test to avoid collisions
             var options = new DbContextOptionsBuilder<QuizContext>()
                 .UseInMemoryDatabase(databaseName: $"QuizApp_TestDb_{Guid.NewGuid()}")
                 .Options;
 
             var context = new QuizContext(options);
-
-            // Ensure database is created
             context.Database.EnsureCreated();
 
             return context;
