@@ -1,7 +1,7 @@
 <template>
   <div class="app">
     <header class="app-header">
-      <h1>QuizApp SPA</h1>
+      <h1>QuizApp</h1>
       <nav>
         <router-link to="/quizzes">Quizzes</router-link>
       </nav>
