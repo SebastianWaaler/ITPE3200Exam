@@ -1,6 +1,6 @@
 {
   "Version": 1,
-  "Hash": "E100o/Myt3EG27sHtLzLdDqtZUqDkREHBhRlCZYY0Wo=",
+  "Hash": "fu842uAzbsZabjJCp8pQelUtBiwcm8jfak44kQCokX8=",
   "Source": "QuizApp",
   "BasePath": "_content/QuizApp",
   "Mode": "Default",
@@ -1250,6 +1250,25 @@
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
       "OriginalItemSpec": "wwwroot/js/api.js"
+    },
+    {
+      "Identity": "/Users/sebastianwaaler/Desktop/OsloMet/ITPE3200 Webapplikasjoner/QuizApp/wwwroot/js/app.js",
+      "SourceId": "QuizApp",
+      "SourceType": "Discovered",
+      "ContentRoot": "/Users/sebastianwaaler/Desktop/OsloMet/ITPE3200 Webapplikasjoner/QuizApp/wwwroot/",
+      "BasePath": "_content/QuizApp",
+      "RelativePath": "js/app.js",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot/js/app.js"
     },
     {
       "Identity": "/Users/sebastianwaaler/Desktop/OsloMet/ITPE3200 Webapplikasjoner/QuizApp/wwwroot/js/QuizService.js",

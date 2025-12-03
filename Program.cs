@@ -105,12 +105,14 @@ app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Map MVC routes - default route goes to Quiz/Index
-app.MapControllerRoute(
-    name: "default",
-    pattern: "{controller=Quiz}/{action=Index}/{id?}");
+// Map API routes first (before catch-all)
+app.MapControllers();
 
 // Map Razor Pages (used for Identity pages like Login, Register)
 app.MapRazorPages();
+
+// Catch-all route for SPA - redirects all non-API routes to the SPA shell
+// This allows Vue Router to handle client-side routing
+app.MapFallbackToController("Index", "Home");
 
 app.Run();

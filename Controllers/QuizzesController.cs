@@ -226,6 +226,10 @@ namespace QuizApp.Controllers
         /// Awards points for each correct answer based on the question's point value.
         /// Returns a results page showing the score (earned points / total points) and percentage.
         /// </summary>
+        /// <summary>
+        /// Processes the submitted quiz answers and calculates the score.
+        /// Returns JSON result for SPA client-side navigation.
+        /// </summary>
         [HttpPost]
         [Authorize]
         public async Task<IActionResult> Submit(int QuizId)
@@ -256,19 +260,18 @@ namespace QuizApp.Controllers
                     }
                 }
 
-                var result = new QuizResultViewModel
+                // Return JSON for SPA client-side navigation
+                return Json(new
                 {
-                    QuizTitle = quiz.Title,
-                    TotalPoints = totalPoints,
-                    EarnedPoints = earnedPoints
-                };
-
-                return View("QuizResult", result);
+                    quizTitle = quiz.Title,
+                    totalPoints = totalPoints,
+                    earnedPoints = earnedPoints
+                });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error submitting quiz {QuizId}", QuizId);
-                return RedirectToAction("Error", "Home");
+                return StatusCode(500, new { error = "Failed to submit quiz" });
             }
         }
     }

@@ -1,8 +1,556 @@
-﻿@{
-    ViewData["Title"] = "Home Page";
+﻿@* 
+    Single Page Application (SPA) shell page.
+    This is the only HTML page that loads - all navigation happens client-side via Vue Router.
+    All content is rendered dynamically by Vue.js components without page reloads.
+*@
+@{
+    Layout = null; // SPA doesn't use the MVC layout - it has its own complete HTML structure
 }
+@using Microsoft.AspNetCore.Identity
+@using QuizApp.Models
+@inject SignInManager<ApplicationUser> SignInManager
+@inject UserManager<ApplicationUser> UserManager
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
-</div>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>QuizApp - Single Page Application</title>
+    
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" />
+</head>
+<body class="bg-light">
+    <div id="app">
+        <!-- Navigation Header -->
+        <header class="border-bottom mb-4 bg-white">
+            <div class="container d-flex align-items-center justify-content-between py-3">
+                <router-link to="/" class="navbar-brand h3 text-decoration-none mb-0">
+                    QuizApp
+                </router-link>
+
+                <div>
+                    <span v-if="user" class="me-3 text-muted">
+                        Hello, {{ user.userName }}!
+                    </span>
+
+                    <button v-if="user" 
+                            @@click="logout" 
+                            class="btn btn-outline-danger btn-sm">
+                        Logout
+                    </button>
+
+                    <template v-else>
+                        <a href="/Identity/Account/Login" class="btn btn-outline-primary btn-sm me-2">
+                            Login
+                        </a>
+                        <a href="/Identity/Account/Register" class="btn btn-primary btn-sm">
+                            Register
+                        </a>
+                    </template>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Area - Vue Router renders components here -->
+        <main role="main" class="container mb-5">
+            <router-view></router-view>
+        </main>
+    </div>
+
+    <!-- Vue Router Templates -->
+    <script type="text/x-template" id="quiz-list-template">
+        <div>
+            <h2 class="mb-3">Quizzes</h2>
+
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <button v-if="isAdmin" 
+                        @@click="$router.push('/quiz/create')" 
+                        class="btn btn-primary">
+                    New Quiz
+                </button>
+            </div>
+
+            <div v-if="!loading">
+                <div class="mb-3">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <input 
+                                type="text" 
+                                class="form-control" 
+                                placeholder="Search quizzes by title or description..." 
+                                v-model="searchQuery"
+                                @@input="filterQuizzes" />
+                        </div>
+                        <div class="col-md-6">
+                            <p class="text-muted mb-0" v-if="filteredQuizzes.length !== quizzes.length">
+                                Showing {{ filteredQuizzes.length }} of {{ quizzes.length }} quizzes
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div v-if="loading" class="text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2">Loading quizzes...</p>
+            </div>
+
+            <div v-if="error" class="alert alert-danger" role="alert">
+                <strong>Error:</strong> {{ error }}
+            </div>
+
+            <table v-if="!loading && filteredQuizzes.length" class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Description</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="q in filteredQuizzes" :key="q.quizId">
+                        <td>{{ q.title }}</td>
+                        <td>{{ q.description }}</td>
+                        <td class="text-end">
+                            <template v-if="isAdmin">
+                                <button 
+                                    class="btn btn-sm btn-primary me-2"
+                                    @@click="$router.push('/quiz/details/' + q.quizId)">
+                                    Details
+                                </button>
+                                <button 
+                                    class="btn btn-sm btn-warning me-2"
+                                    @@click="$router.push('/quiz/edit/' + q.quizId)">
+                                    Edit
+                                </button>
+                                <button 
+                                    class="btn btn-sm btn-danger me-2"
+                                    @@click="$router.push('/quiz/delete/' + q.quizId)">
+                                    Delete
+                                </button>
+                            </template>
+                            <button 
+                                class="btn btn-sm btn-success"
+                                @@click="$router.push('/quiz/take/' + q.quizId)">
+                                Take Quiz
+                            </button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div v-if="!loading && !filteredQuizzes.length && quizzes.length > 0" class="alert alert-info">
+                No quizzes match your search criteria.
+            </div>
+            <div v-if="!loading && !quizzes.length" class="alert alert-info">
+                No quizzes found. <a v-if="isAdmin" href="#" @@click.prevent="$router.push('/quiz/create')">Create the first quiz</a>
+            </div>
+        </div>
+    </script>
+
+    <script type="text/x-template" id="quiz-create-template">
+        <div>
+            <h2 class="mb-4">Create Quiz</h2>
+
+            <div v-if="errors.length > 0" class="alert alert-danger">
+                <ul class="mb-0">
+                    <li v-for="error in errors" :key="error">{{ error }}</li>
+                </ul>
+            </div>
+
+            <div class="mb-3">
+                <label for="title">Title <span class="text-danger">*</span></label>
+                <input 
+                    id="title"
+                    class="form-control" 
+                    v-model="title" 
+                    :class="{ 'is-invalid': errors.includes('Title is required') }"
+                    maxlength="200"
+                    required />
+                <div class="invalid-feedback" v-if="errors.includes('Title is required')">
+                    Title is required
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label for="description">Description</label>
+                <textarea 
+                    id="description"
+                    class="form-control" 
+                    v-model="description"
+                    rows="4"></textarea>
+            </div>
+
+            <button class="btn btn-primary" @@click="saveQuiz" :disabled="saving">
+                <span v-if="saving" class="spinner-border spinner-border-sm me-2" role="status"></span>
+                {{ saving ? 'Saving...' : 'Save' }}
+            </button>
+            <button class="btn btn-secondary" @@click="cancel">Cancel</button>
+        </div>
+    </script>
+
+    <script type="text/x-template" id="quiz-edit-template">
+        <div>
+            <h2>Edit Quiz</h2>
+
+            <div v-if="loading" class="text-center py-5">
+                <div class="spinner-border text-primary" role="status"></div>
+            </div>
+
+            <div v-if="errors.length > 0" class="alert alert-danger">
+                <ul class="mb-0">
+                    <li v-for="error in errors" :key="error">{{ error }}</li>
+                </ul>
+            </div>
+
+            <div v-if="!loading">
+                <div class="mb-3">
+                    <label for="title">Title <span class="text-danger">*</span></label>
+                    <input 
+                        id="title"
+                        class="form-control" 
+                        v-model="title"
+                        :class="{ 'is-invalid': errors.includes('Title is required') }"
+                        maxlength="200"
+                        required />
+                    <div class="invalid-feedback" v-if="errors.includes('Title is required')">
+                        Title is required
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="description">Description</label>
+                    <textarea 
+                        id="description"
+                        class="form-control" 
+                        v-model="description"
+                        rows="4"></textarea>
+                </div>
+
+                <button class="btn btn-primary" @@click="updateQuiz" :disabled="saving">
+                    <span v-if="saving" class="spinner-border spinner-border-sm me-2" role="status"></span>
+                    {{ saving ? 'Saving...' : 'Save' }}
+                </button>
+                <button class="btn btn-secondary" @@click="cancel">Cancel</button>
+            </div>
+        </div>
+    </script>
+
+    <script type="text/x-template" id="quiz-details-template">
+        <div>
+            <div v-if="loading" class="text-center py-5">
+                <div class="spinner-border text-primary" role="status"></div>
+            </div>
+
+            <div v-if="error" class="alert alert-danger">{{ error }}</div>
+
+            <div v-if="!loading && quiz">
+                <h2>{{ quiz.title }}</h2>
+                <p>{{ quiz.description }}</p>
+
+                <h3>Questions</h3>
+
+                <div v-if="quiz.questions.length === 0">
+                    <p>No questions added yet.</p>
+                    <button class="btn btn-primary"
+                            @@click="$router.push('/questions/create?quizId=' + quiz.quizId)">
+                        Add First Question
+                    </button>
+                </div>
+
+                <div v-else>
+                    <button class="btn btn-success mb-3"
+                            @@click="$router.push('/questions/create?quizId=' + quiz.quizId)">
+                        Add Question
+                    </button>
+
+                    <ul class="list-group">
+                        <li class="list-group-item" v-for="q in quiz.questions" :key="q.id">
+                            <strong>{{ q.text }}</strong>
+                            ({{ q.points }} points)
+
+                            <ul>
+                                <li v-for="opt in q.options"
+                                    :key="opt.id"
+                                    :style="opt.isCorrect ? 'color:green;font-weight:bold' : ''">
+                                    {{ opt.text }}
+                                    <span v-if="opt.isCorrect">✓</span>
+                                </li>
+                            </ul>
+
+                            <button @@click="$router.push('/questions/edit/' + q.id)" class="btn btn-sm btn-primary">Edit</button>
+                            <button @@click="$router.push('/questions/delete/' + q.id)" class="btn btn-sm btn-danger">Delete</button>
+                        </li>
+                    </ul>
+                </div>
+                <button class="btn btn-secondary mt-3" @@click="$router.push('/')">Back to Quizzes</button>
+            </div>
+        </div>
+    </script>
+
+    <script type="text/x-template" id="quiz-take-template">
+        <div>
+            <div class="mb-4" v-if="quiz">
+                <h1 class="mb-1">{{ quiz.title }}</h1>
+                <p class="text-muted">{{ quiz.description }}</p>
+            </div>
+
+            <p v-if="loading">Loading quiz...</p>
+            <p v-if="error" class="text-danger">{{ error }}</p>
+
+            <form v-if="!loading && quiz && quiz.questions && quiz.questions.length"
+                  @@submit.prevent="submitQuiz"
+                  class="card shadow-sm p-4">
+
+                <div v-for="question in quiz.questions"
+                     :key="question.id"
+                     class="mb-4 p-3 border rounded bg-light">
+
+                    <strong class="d-block mb-2">{{ question.text }}</strong>
+
+                    <div class="form-check mb-1"
+                         v-for="option in question.options"
+                         :key="option.id">
+
+                        <label class="form-check-label">
+                            <input type="radio"
+                                   class="form-check-input"
+                                   :name="'question_' + question.id"
+                                   :value="option.id"
+                                   @@change="selectAnswer(question.id, option.id)" />
+                            {{ option.text }}
+                        </label>
+                    </div>
+                </div>
+
+                <hr />
+                <button type="submit" class="btn btn-primary mt-3">Submit Quiz</button>
+            </form>
+
+            <p v-if="!loading && quiz && (!quiz.questions || quiz.questions.length === 0)">
+                This quiz has no questions yet.
+            </p>
+        </div>
+    </script>
+
+    <script type="text/x-template" id="quiz-result-template">
+        <div class="mt-4">
+            <div class="card shadow-sm p-5 text-center">
+                <h1 class="mb-4">Quiz Result</h1>
+                <h2 class="mb-4 text-primary">{{ result.title }}</h2>
+
+                <div class="mb-4">
+                    <div class="display-4 mb-2">
+                        <strong>{{ result.earned }}</strong> / <strong>{{ result.total }}</strong>
+                    </div>
+                    <p class="text-muted">points</p>
+                    
+                    <div v-if="result.total > 0" class="mt-3">
+                        <div class="progress" style="height: 30px;">
+                            <div 
+                                class="progress-bar" 
+                                :class="percentage >= 70 ? 'bg-success' : percentage >= 50 ? 'bg-warning' : 'bg-danger'"
+                                :style="`width: ${percentage}%`"
+                                role="progressbar">
+                                {{ percentage }}%
+                            </div>
+                        </div>
+                        <p class="mt-2" v-if="percentage === 100">
+                            <span class="badge bg-success">Perfect Score!</span>
+                        </p>
+                        <p class="mt-2" v-else-if="percentage >= 70">
+                            <span class="badge bg-success">Great Job!</span>
+                        </p>
+                        <p class="mt-2" v-else-if="percentage >= 50">
+                            <span class="badge bg-warning">Good Try!</span>
+                        </p>
+                        <p class="mt-2" v-else>
+                            <span class="badge bg-danger">Keep Practicing!</span>
+                        </p>
+                    </div>
+                    <div v-else class="alert alert-info mt-3">
+                        This quiz had no questions or zero total points.
+                    </div>
+                </div>
+
+                <button @@click="$router.push('/')" class="btn btn-primary btn-lg mt-3">Back to Quizzes</button>
+            </div>
+        </div>
+    </script>
+
+    <script type="text/x-template" id="quiz-delete-template">
+        <div>
+            <h2>Delete Quiz</h2>
+
+            <div v-if="loading" class="text-center py-5">
+                <div class="spinner-border text-primary" role="status"></div>
+            </div>
+
+            <div v-if="!loading">
+                <p>Are you sure you want to delete <strong>{{ title }}</strong>?</p>
+                <button class="btn btn-danger" @@click="deleteQuiz">Delete</button>
+                <button class="btn btn-secondary" @@click="cancel">Cancel</button>
+            </div>
+        </div>
+    </script>
+
+    <script type="text/x-template" id="question-create-template">
+        <div>
+            <h2>Create Question — {{ quizTitle }}</h2>
+
+            <div v-if="loading" class="text-center py-5">
+                <div class="spinner-border text-primary" role="status"></div>
+            </div>
+
+            <div v-if="errors.length > 0" class="alert alert-danger">
+                <ul class="mb-0">
+                    <li v-for="error in errors" :key="error">{{ error }}</li>
+                </ul>
+            </div>
+
+            <div v-if="!loading">
+                <div class="mb-3">
+                    <label class="form-label">Question Text <span class="text-danger">*</span></label>
+                    <input class="form-control" v-model="text" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Points</label>
+                    <input type="number" class="form-control" v-model.number="points" />
+                </div>
+
+                <hr />
+                <h4>Answer Options</h4>
+
+                <div class="option-row mb-2" v-for="(opt, idx) in options" :key="idx">
+                    <div class="d-flex align-items-center">
+                        <input class="form-control me-2"
+                               v-model="opt.text"
+                               placeholder="Option text" />
+
+                        <label class="form-check-label me-2 ms-2">
+                            <input type="radio"
+                                   name="CorrectIndex"
+                                   :value="idx"
+                                   v-model.number="correctIndex"
+                                   class="form-check-input" />
+                            Correct
+                        </label>
+
+                        <button type="button"
+                                class="btn btn-danger btn-sm ms-2"
+                                @@click="removeOption(idx)">
+                            X
+                        </button>
+                    </div>
+                </div>
+
+                <button type="button" class="btn btn-secondary mt-2" @@click="addOption">
+                    Add Option
+                </button>
+
+                <br /><br />
+
+                <button class="btn btn-primary" @@click="saveQuestion">Save</button>
+                <button class="btn btn-outline-secondary" @@click="cancel">Cancel</button>
+            </div>
+        </div>
+    </script>
+
+    <script type="text/x-template" id="question-edit-template">
+        <div>
+            <h2>Edit Question</h2>
+
+            <div v-if="loading" class="text-center py-5">
+                <div class="spinner-border text-primary" role="status"></div>
+            </div>
+
+            <div v-if="errors.length > 0" class="alert alert-danger">
+                <ul class="mb-0">
+                    <li v-for="error in errors" :key="error">{{ error }}</li>
+                </ul>
+            </div>
+
+            <div v-if="!loading">
+                <div class="mb-3">
+                    <label class="form-label">Question Text</label>
+                    <input class="form-control" v-model="text" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Points</label>
+                    <input type="number" class="form-control" v-model.number="points" />
+                </div>
+
+                <hr />
+                <h4>Answer Options</h4>
+
+                <div class="option-row mb-2" v-for="(opt, idx) in options" :key="idx">
+                    <div class="d-flex align-items-center">
+                        <input type="hidden" :value="opt.id" />
+                        <input class="form-control me-2" v-model="opt.text" />
+
+                        <label class="form-check-label me-2 ms-2">
+                            <input type="radio"
+                                   name="CorrectIndex"
+                                   :value="idx"
+                                   v-model.number="correctIndex"
+                                   class="form-check-input" />
+                            Correct
+                        </label>
+
+                        <button type="button"
+                                class="btn btn-danger btn-sm ms-2"
+                                @@click="removeOption(idx)">
+                            X
+                        </button>
+                    </div>
+                </div>
+
+                <button type="button" class="btn btn-secondary mt-2" @@click="addOption">
+                    Add Option
+                </button>
+
+                <br /><br />
+
+                <button class="btn btn-primary" @@click="saveQuestion">Save</button>
+                <button class="btn btn-outline-secondary" @@click="cancel">Cancel</button>
+            </div>
+        </div>
+    </script>
+
+    <script type="text/x-template" id="question-delete-template">
+        <div>
+            <h2>Delete Question</h2>
+
+            <div v-if="loading" class="text-center py-5">
+                <div class="spinner-border text-primary" role="status"></div>
+            </div>
+
+            <div v-if="!loading && question">
+                <p>Are you sure you want to delete this question?</p>
+                <p><strong>{{ question.text }}</strong></p>
+                <button class="btn btn-danger" @@click="deleteQuestion">Delete</button>
+                <button class="btn btn-secondary" @@click="cancel">Cancel</button>
+            </div>
+        </div>
+    </script>
+
+    <!-- Load Vue.js and Vue Router from CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <script src="https://unpkg.com/vue-router@4/dist/vue-router.global.prod.js"></script>
+    
+    <!-- Load Bootstrap JS -->
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Load our SPA application -->
+    <script src="~/js/app.js"></script>
+    
+    <!-- Anti-forgery token for form submissions -->
+    @Html.AntiForgeryToken()
+</body>
+</html>
