@@ -18,7 +18,7 @@ namespace QuizApp.Data.Repositories.Implementations
         {
             return await _context.Options
                 .Include(o => o.Question)
-                .ThenInclude(q => q.Quiz)
+                .ThenInclude(q => q!.Quiz)
                 .FirstOrDefaultAsync(o => o.Id == id);
         }
 

@@ -1,3 +1,103 @@
+/* Action buttons styling */
 .action-buttons {
     white-space: nowrap;
+}
+
+/* Enhanced design improvements */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* Card styling for forms and content */
+.card {
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.card:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    transition: box-shadow 0.15s ease-in-out;
+}
+
+/* Table improvements */
+.table-hover tbody tr:hover {
+    background-color: rgba(0, 0, 0, 0.025);
+}
+
+/* Button improvements */
+.btn {
+    transition: all 0.2s ease-in-out;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.1);
+}
+
+/* Form input focus styling */
+.form-control:focus {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* Quiz result styling */
+#quiz-result-app {
+    text-align: center;
+    padding: 2rem;
+}
+
+#quiz-result-app h1 {
+    color: #0d6efd;
+    margin-bottom: 1rem;
+}
+
+/* Loading spinner */
+.spinner-border {
+    width: 3rem;
+    height: 3rem;
+}
+
+/* Alert improvements */
+.alert {
+    border-radius: 0.375rem;
+}
+
+/* Header improvements */
+header {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.navbar-brand {
+    font-weight: 600;
+    color: #0d6efd !important;
+}
+
+/* Option row styling in question forms */
+.option-row {
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+    background-color: #f8f9fa;
+}
+
+.option-row:hover {
+    background-color: #e9ecef;
+}
+
+/* Quiz details styling */
+.list-group-item {
+    border-left: 3px solid #0d6efd;
+    margin-bottom: 0.5rem;
+}
+
+/* Responsive improvements */
+@media (max-width: 768px) {
+    .table {
+        font-size: 0.875rem;
+    }
+    
+    .btn-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+    }
 }

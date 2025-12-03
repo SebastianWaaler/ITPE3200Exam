@@ -15,17 +15,40 @@
 
 <div id="quiz-edit-app">
 
-    <div class="mb-3">
-        <label>Title</label>
-        <input class="form-control" v-model="title" />
+    <!-- Validation error messages -->
+    <div v-if="errors.length > 0" class="alert alert-danger">
+        <ul class="mb-0">
+            <li v-for="error in errors" :key="error">{{ error }}</li>
+        </ul>
     </div>
 
     <div class="mb-3">
-        <label>Description</label>
-        <textarea class="form-control" v-model="description"></textarea>
+        <label for="title">Title <span class="text-danger">*</span></label>
+        <input 
+            id="title"
+            class="form-control" 
+            v-model="title"
+            :class="{ 'is-invalid': errors.includes('Title is required') }"
+            maxlength="200"
+            required />
+        <div class="invalid-feedback" v-if="errors.includes('Title is required')">
+            Title is required
+        </div>
     </div>
 
-    <button class="btn btn-primary" @@click="updateQuiz">Save</button>
+    <div class="mb-3">
+        <label for="description">Description</label>
+        <textarea 
+            id="description"
+            class="form-control" 
+            v-model="description"
+            rows="4"></textarea>
+    </div>
+
+    <button class="btn btn-primary" @@click="updateQuiz" :disabled="saving">
+        <span v-if="saving" class="spinner-border spinner-border-sm me-2" role="status"></span>
+        {{ saving ? 'Saving...' : 'Save' }}
+    </button>
     <a class="btn btn-secondary" :href="`/Quiz`">Cancel</a>
 
 </div>
@@ -42,23 +65,51 @@
             return {
                 quizId: initial.quizId,
                 title: initial.title,
-                description: initial.description
+                description: initial.description,
+                errors: [],
+                saving: false
             };
         },
         methods: {
+            // Client-side validation before submitting
+            validate() {
+                this.errors = [];
+                
+                // Validate title (required, max 200 characters)
+                if (!this.title || this.title.trim() === "") {
+                    this.errors.push("Title is required");
+                } else if (this.title.length > 200) {
+                    this.errors.push("Title must be 200 characters or less");
+                }
+                
+                return this.errors.length === 0;
+            },
+            
             async updateQuiz() {
+                // Clear previous errors
+                this.errors = [];
+                
+                // Client-side validation
+                if (!this.validate()) {
+                    return;
+                }
+                
+                this.saving = true;
+                
                 try {
                     await QuizService.update({
                         quizId: this.quizId,  
-                        title: this.title,
-                        description: this.description
+                        title: this.title.trim(),
+                        description: this.description.trim()
                     });
 
                     window.location.href = `/Quiz`;
                 }
                 catch (err) {
-                    console.error(err);
-                    alert("Failed to update quiz.");
+                    console.error("Error updating quiz:", err);
+                    this.errors.push("Failed to update quiz. Please try again.");
+                } finally {
+                    this.saving = false;
                 }
             }
         }

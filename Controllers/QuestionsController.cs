@@ -88,15 +88,17 @@ namespace QuizApp.Controllers
 
                 question.Options ??= new List<Option>();
 
-                // Clean options
+                // Clean options: remove empty options and trim whitespace
                 question.Options = question.Options
                     .Where(o => !string.IsNullOrWhiteSpace(o.Text))
                     .Select(o => new Option { Text = o.Text.Trim(), IsCorrect = false })
                     .ToList();
 
+                // Server-side validation: require at least 2 options
                 if (question.Options.Count < 2)
                     ModelState.AddModelError("", "At least two options required.");
 
+                // Server-side validation: require a correct answer to be selected
                 if (CorrectIndex == null || CorrectIndex < 0 || CorrectIndex >= question.Options.Count)
                     ModelState.AddModelError("", "Select a correct answer.");
                 else
@@ -164,6 +166,7 @@ namespace QuizApp.Controllers
 
                 Options ??= new List<Option>();
 
+                // Clean options: remove empty options and trim whitespace
                 var cleanedOptions = Options
                     .Where(o => !string.IsNullOrWhiteSpace(o.Text))
                     .Select(o => new Option
@@ -175,9 +178,11 @@ namespace QuizApp.Controllers
                     })
                     .ToList();
 
+                // Server-side validation: require at least 2 options
                 if (cleanedOptions.Count < 2)
                     ModelState.AddModelError("", "A question must have at least 2 answer options.");
 
+                // Server-side validation: require a correct answer to be selected
                 if (CorrectIndex == null || CorrectIndex < 0 || CorrectIndex >= cleanedOptions.Count)
                     ModelState.AddModelError("", "Select which answer is correct.");
                 else

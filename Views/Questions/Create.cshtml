@@ -32,12 +32,12 @@
 
 <div id="question-create-app">
 
-    <form asp-action="Create" method="post" novalidate>
+    <form asp-action="Create" method="post">
         <input type="hidden" asp-for="QuizId" />
 
         <!-- TEXT -->
         <div class="mb-3">
-            <label asp-for="Text" class="form-label"></label>
+            <label asp-for="Text" class="form-label" required></label>
             <input asp-for="Text" class="form-control" v-model="text" />
             <span asp-validation-for="Text" class="text-danger"></span>
         </div>
@@ -51,6 +51,18 @@
 
         <hr />
         <h4>Answer Options</h4>
+
+               <!-- Validation Error Message -->
+        @if (ViewData.ModelState[""]?.Errors?.Count > 0)
+        {
+            <div class="alert alert-danger">
+                @foreach (var error in ViewData.ModelState[""]!.Errors)
+                {
+                    <div>@error.ErrorMessage</div>
+                }
+            </div>
+        }
+
 
         <!-- OPTIONS -->
         <div class="option-row mb-2"
@@ -66,10 +78,14 @@
                        placeholder="Option text" />
 
                 <!-- correct option -->
-                <input type="radio"
-                       name="CorrectIndex"
-                       :value="idx"
-                       v-model.number="correctIndex" />
+                <label class="form-check-label me-2 ms-2">
+                    <input type="radio"
+                           name="CorrectIndex"
+                           :value="idx"
+                           v-model.number="correctIndex"
+                           class="form-check-input" />
+                    Correct
+                </label>
 
                 <!-- REMOVE -->
                 <button type="button"

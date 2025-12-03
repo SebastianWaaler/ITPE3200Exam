@@ -13,18 +13,46 @@
 }
 
 <div id="quiz-result-app" class="mt-4">
+    <div class="card shadow-sm p-5 text-center">
+        <h1 class="mb-4">Quiz Result</h1>
 
-    <h1>Quiz Result</h1>
+        <h2 class="mb-4 text-primary">{{ result.title }}</h2>
 
-    <h2>{{ result.title }}</h2>
+        <!-- Score display with percentage -->
+        <div class="mb-4">
+            <div class="display-4 mb-2">
+                <strong>{{ result.earned }}</strong> / <strong>{{ result.total }}</strong>
+            </div>
+            <p class="text-muted">points</p>
+            
+            <!-- Percentage calculation and display -->
+            <div v-if="result.total > 0" class="mt-3">
+                <div class="progress" style="height: 30px;">
+                    <div 
+                        class="progress-bar" 
+                        :class="percentage >= 70 ? 'bg-success' : percentage >= 50 ? 'bg-warning' : 'bg-danger'"
+                        :style="`width: ${percentage}%`"
+                        role="progressbar">
+                        {{ percentage.toFixed(0) }}%
+                    </div>
+                </div>
+                <p class="mt-2" v-if="percentage === 100">
+                    <span class="badge bg-success">Perfect Score!</span>
+                </p>
+                <p class="mt-2" v-else-if="percentage >= 70">
+                    <span class="badge bg-success">Great Job!</span>
+                </p>
+                <p class="mt-2" v-else-if="percentage >= 50">
+                    <span class="badge bg-warning">Good Try!</span>
+                </p>
+                <p class="mt-2" v-else>
+                    <span class="badge bg-danger">Keep Practicing!</span>
+                </p>
+            </div>
+        </div>
 
-    <p>
-        <strong>You scored:</strong>
-        {{ result.earned }} / {{ result.total }} points
-    </p>
-
-    <a href="/Quiz" class="btn btn-primary mt-3">Back to Quizzes</a>
-
+        <a href="/Quiz" class="btn btn-primary btn-lg mt-3">Back to Quizzes</a>
+    </div>
 </div>
 
 @section Scripts {
@@ -40,6 +68,13 @@
                 return {
                     result: initial
                 };
+            },
+            computed: {
+                // Calculate percentage score for display
+                percentage() {
+                    if (this.result.total === 0) return 0;
+                    return (this.result.earned / this.result.total) * 100;
+                }
             }
         }).mount("#quiz-result-app");
 

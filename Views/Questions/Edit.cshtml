@@ -51,6 +51,18 @@
         <hr />
         <h4>Answer Options</h4>
 
+         <!-- Validation Error Message -->
+        @if (ViewData.ModelState[""]?.Errors?.Count > 0)
+        {
+            <div class="alert alert-danger">
+                @foreach (var error in ViewData.ModelState[""]!.Errors)
+                {
+                    <div>@error.ErrorMessage</div>
+                }
+            </div>
+        }
+
+
         <!-- Vue-controlled options -->
         <div class="option-row mb-2" 
              v-for="(opt, idx) in options" 
@@ -74,10 +86,14 @@
                        :value="opt.isCorrect" />
 
                 <!-- Correct answer selector -->
-                <input type="radio"
-                       name="CorrectIndex"
-                       :value="idx"
-                       v-model.number="correctIndex" />
+                <label class="form-check-label me-2 ms-2">
+                    <input type="radio"
+                           name="CorrectIndex"
+                           :value="idx"
+                           v-model.number="correctIndex"
+                           class="form-check-input" />
+                    Correct
+                </label>
 
                 <!-- Remove Option -->
                 <button type="button"

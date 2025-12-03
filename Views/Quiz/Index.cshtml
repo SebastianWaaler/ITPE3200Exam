@@ -19,14 +19,40 @@
 <!-- Vue root -->
 <div id="quiz-index-app">
 
+    <!-- Search/Filter Section -->
+    <div class="mb-3" v-if="!loading">
+        <div class="row">
+            <div class="col-md-6">
+                <input 
+                    type="text" 
+                    class="form-control" 
+                    placeholder="Search quizzes by title or description..." 
+                    v-model="searchQuery"
+                    @@input="filterQuizzes" />
+            </div>
+            <div class="col-md-6">
+                <p class="text-muted mb-0" v-if="filteredQuizzes.length !== quizzes.length">
+                    Showing {{ filteredQuizzes.length }} of {{ quizzes.length }} quizzes
+                </p>
+            </div>
+        </div>
+    </div>
+
     <!-- Loading -->
-    <p v-if="loading">Loading quizzes...</p>
+    <div v-if="loading" class="text-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-2">Loading quizzes...</p>
+    </div>
 
     <!-- Error -->
-    <p v-if="error" class="text-danger">{{ error }}</p>
+    <div v-if="error" class="alert alert-danger" role="alert">
+        <strong>Error:</strong> {{ error }}
+    </div>
 
     <!-- Quiz table -->
-    <table v-if="!loading && quizzes.length" class="table table-striped">
+    <table v-if="!loading && filteredQuizzes.length" class="table table-striped table-hover">
         <thead>
             <tr>
                 <th>Title</th>
@@ -36,7 +62,7 @@
         </thead>
 
         <tbody>
-            <tr v-for="q in quizzes" :key="q.quizId">
+            <tr v-for="q in filteredQuizzes" :key="q.quizId">
 
                 <td>{{ q.title }}</td>
                 <td>{{ q.description }}</td>
@@ -75,7 +101,12 @@
         </tbody>
     </table>
 
-    <p v-if="!loading && !quizzes.length">No quizzes found.</p>
+    <div v-if="!loading && !filteredQuizzes.length && quizzes.length > 0" class="alert alert-info">
+        No quizzes match your search criteria.
+    </div>
+    <div v-if="!loading && !quizzes.length" class="alert alert-info">
+        No quizzes found. @if (isAdmin) { <a href="/Quiz/Create">Create the first quiz</a> }
+    </div>
 </div>
 
 @section Scripts {
@@ -87,6 +118,8 @@
             data() {
                 return {
                     quizzes: [],
+                    filteredQuizzes: [],
+                    searchQuery: "",
                     loading: true,
                     error: null,
                     isAdmin: @isAdmin.ToString().ToLower()
@@ -99,12 +132,32 @@
                     if (!response.ok) throw new Error('Failed to load quizzes');
 
                     this.quizzes = await response.json();
+                    this.filteredQuizzes = this.quizzes;
 
                 } catch (err) {
                     console.error(err);
                     this.error = "Failed to load quizzes.";
                 } finally {
                     this.loading = false;
+                }
+            },
+
+            methods: {
+                // Client-side content filtering: filter quizzes by search query
+                filterQuizzes() {
+                    const query = this.searchQuery.toLowerCase().trim();
+                    
+                    if (!query) {
+                        this.filteredQuizzes = this.quizzes;
+                        return;
+                    }
+
+                    // Filter by title or description
+                    this.filteredQuizzes = this.quizzes.filter(quiz => {
+                        const titleMatch = quiz.title?.toLowerCase().includes(query) || false;
+                        const descMatch = quiz.description?.toLowerCase().includes(query) || false;
+                        return titleMatch || descMatch;
+                    });
                 }
             }
         }).mount('#quiz-index-app');
